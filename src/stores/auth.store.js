@@ -34,5 +34,5 @@ export const useAuthStore = defineStore('auth', () => {
   // Keep user in sync with Supabase session
   watchEffect(fetchUser)
 
-  return { user, signUp, signIn, signOut, isAuthenticated }
+  return { user, fetchUser, signUp, signIn, signOut, isAuthenticated }
 })

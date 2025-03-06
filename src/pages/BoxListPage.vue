@@ -114,7 +114,7 @@ const handleCreateBox = async () => {
 
 const goToBoxDetail = (boxId) => {
   // Navigate to the box detail page
-  router.push('/box/' + boxId)
+  router.push('/boxes/' + boxId)
 }
 
 const confirmDelete = (id) => {

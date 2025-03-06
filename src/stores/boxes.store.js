@@ -98,6 +98,15 @@ export const useBoxesStore = defineStore('boxes', () => {
   }
     */
 
+  const updateBox = async (id, boxData) => {
+    const user = authStore.user
+    if (!user) throw new Error('User not authenticated')
+
+    const { data, error } = await supabase.from('boxes').update(boxData).eq('id', id)
+    if (error) throw error
+    return data
+  }
+
   const deleteBox = async (id) => {
     const user = authStore.user
     if (!user) throw new Error('User not authenticated')
@@ -108,5 +117,5 @@ export const useBoxesStore = defineStore('boxes', () => {
     return data
   }
 
-  return { boxes, fetchBoxes, createBox, deleteBox }
+  return { boxes, fetchBoxes, createBox, updateBox, deleteBox }
 })

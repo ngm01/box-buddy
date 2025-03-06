@@ -4,7 +4,8 @@ const routes = [
     component: () => import('layouts/MainLayout.vue'),
     children: [
       { path: '', component: () => import('src/pages/BoxListPage.vue') },
-      { path: '/box/:box_id', component: () => import('src/pages/BoxDetailPage.vue') },
+      { path: '/boxes', component: () => import('src/pages/BoxListPage.vue') },
+      { path: '/boxes/:box_id', component: () => import('src/pages/BoxDetailPage.vue') },
     ],
     meta: { requiresAuth: true },
   },
