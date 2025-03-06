@@ -6,7 +6,7 @@
       </q-card-section>
 
       <q-card-section>
-        <q-input v-model="title" label="Item Title" outlined />
+        <q-input v-model="name" label="Item Name" outlined />
         <q-input v-model="description" label="Description" outlined type="textarea" />
       </q-card-section>
 
@@ -32,7 +32,7 @@
 import { ref } from 'vue'
 //import { BarcodeScanner } from '@capacitor/barcode-scanner';
 import Tesseract from 'tesseract.js'
-import supabase from 'boot/supabase'
+import { supabase } from '../utils/supabase'
 import { useBoxesStore } from 'src/stores/boxes.store'
 const boxesStore = useBoxesStore()
 // Dialog visibility
@@ -45,7 +45,7 @@ const props = defineProps({
 })
 
 // Form inputs
-const title = ref('')
+const name = ref('')
 const description = ref('')
 const previewText = ref('')
 const enableAI = ref(false) // V2/Paid Feature
@@ -56,7 +56,7 @@ const scanText = async () => {
     const image = await captureImage()
     const { data } = await Tesseract.recognize(image, 'eng')
     previewText.value = data.text.trim()
-    title.value = previewText.value
+    name.value = previewText.value
   } catch (error) {
     console.error('OCR Error:', error)
   }
@@ -89,7 +89,8 @@ const identifyImage = async () => {
 const saveItem = async () => {
   const { data: itemData, error } = await supabase
     .from('items')
-    .insert([{ title: title.value, description: description.value, box_id: props.boxId }])
+    .insert([{ name: name.value, description: description.value, box_id: props.boxId }])
+    .select('id')
   if (error) console.error('Error saving item:', error)
   else {
     const itemId = itemData[0].id

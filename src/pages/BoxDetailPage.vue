@@ -47,7 +47,7 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import QRCodeCanvas from 'src/components/QRCodeCanvas.vue'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
-import supabase from 'boot/supabase'
+import { supabase } from '../utils/supabase'
 
 const route = useRoute()
 const boxesStore = useBoxesStore()
