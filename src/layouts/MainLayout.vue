@@ -2,8 +2,25 @@
   <q-layout view="lHh Lpr lFf">
     <q-header elevated>
       <q-toolbar>
-        <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
-        <q-toolbar-title> Box Buddy </q-toolbar-title>
+        <q-btn
+          flat
+          dense
+          round
+          icon="menu"
+          title="Menu"
+          aria-label="Menu"
+          @click="toggleLeftDrawer"
+        />
+        <q-toolbar-title> Box Buddy 📦 </q-toolbar-title>
+        <q-btn
+          flat
+          dense
+          round
+          icon="logout"
+          title="Logout"
+          aria-label="Logout"
+          @click="handleLogout"
+        />
       </q-toolbar>
     </q-header>
 
@@ -11,7 +28,16 @@
       <q-list>
         <q-item-label header> Navigation </q-item-label>
 
-        <EssentialLink v-for="link in linksList" :key="link.title" v-bind="link" />
+        <q-item clickable tag="router-link" to="/boxes">
+          <q-item-section avatar>
+            <q-icon name="box" />
+          </q-item-section>
+
+          <q-item-section>
+            <q-item-label>Boxes</q-item-label>
+            <q-item-label caption>your boxes</q-item-label>
+          </q-item-section>
+        </q-item>
       </q-list>
     </q-drawer>
 
@@ -23,20 +49,20 @@
 
 <script setup>
 import { ref } from 'vue'
-import EssentialLink from 'components/EssentialLink.vue'
+import { useAuthStore } from '../stores/auth.store'
+import { useRouter } from 'vue-router'
 
-const linksList = [
-  {
-    title: 'Boxes',
-    caption: 'your boxes',
-    icon: 'box',
-    link: '/boxes',
-  },
-]
+const authStore = useAuthStore()
+const router = useRouter()
 
 const leftDrawerOpen = ref(false)
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
+}
+
+function handleLogout() {
+  authStore.signOut()
+  router.push('/login')
 }
 </script>

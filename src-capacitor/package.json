@@ -1,0 +1,12 @@
+{
+  "name": "box-buddy",
+  "version": "0.0.1",
+  "description": "inventoru tracking app",
+  "author": "ngm01 <nathaniel.g.moore@gmail.com>",
+  "private": true,
+  "dependencies": {
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  }
+}

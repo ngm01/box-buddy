@@ -35,6 +35,28 @@
           <q-card-section>
             <q-input v-model="box.name" label="Box Name" filled />
             <q-input v-model="box.description" label="Description" filled type="textarea" />
+            <div class="row items-center q-mt-sm">
+              <q-select
+                v-model="box.access_level"
+                :options="['private', 'public']"
+                label="Access Level"
+                filled
+                class="col"
+                emit-value
+                map-options
+                :options-dense="true"
+                style="margin-right: 8px"
+                default-value="private"
+              />
+              <q-icon name="info" color="primary" size="sm">
+                <q-tooltip>
+                  <span v-if="box.access_level === 'private'">
+                    Only you can view and manage this box
+                  </span>
+                  <span v-else> Anyone with an account can view this box </span>
+                </q-tooltip>
+              </q-icon>
+            </div>
           </q-card-section>
 
           <!-- Submit and Cancel Buttons -->
@@ -88,7 +110,7 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const boxesStore = useBoxesStore()
 const { boxes } = storeToRefs(boxesStore)
-const box = ref({ name: '', description: '' })
+const box = ref({ name: '', description: '', access_level: 'private' })
 const selectedBox = ref(null)
 const showCreateBoxModal = ref(false)
 const showBoxCreatedModal = ref(false)
@@ -107,7 +129,7 @@ const handleCreateBox = async () => {
   } finally {
     qrCode.value = ''
     showCreateBoxModal.value = false
-    box.value = { name: '', description: '' }
+    box.value = { name: '', description: '', access_level: 'private' }
     await boxesStore.fetchBoxes()
   }
 }
