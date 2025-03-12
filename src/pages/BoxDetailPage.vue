@@ -4,55 +4,54 @@
       <p>Loading...</p>
     </div>
     <div v-else>
-      <div class="q-pa-md">
-        <h2 class="text-h6">Box Details</h2>
-        <div v-if="!isEditing">
-          <div class="q-mb-md">
-            <div class="text-h6">{{ box.name }}</div>
-            <div class="text-subtitle2">{{ box.description }}</div>
-            <div class="text-caption">Access Level: {{ box.access_level }}</div>
+      <div class="row q-pa-md">
+        <!-- Box Details Column -->
+        <div class="col-12 col-md-8">
+          <h2 class="text-h6">Box Details</h2>
+          <div v-if="!isEditing">
+            <div class="q-mb-md">
+              <div class="text-h6">{{ box.name }}</div>
+              <div class="text-subtitle2">{{ box.description }}</div>
+              <div class="text-caption">Access Level: {{ box.access_level }}</div>
+            </div>
+            <q-btn
+              color="primary"
+              icon="edit"
+              label="Edit Details"
+              @click="isEditing = true"
+              class="q-mb-lg"
+            />
           </div>
-          <q-btn
-            color="primary"
-            icon="edit"
-            label="Edit Details"
-            @click="isEditing = true"
-            class="q-mb-lg"
-          />
+
+          <q-form v-else @submit.prevent="updateBox" class="q-gutter-md">
+            <q-input v-model="box.name" label="Name" filled />
+
+            <q-input v-model="box.description" label="Description" type="textarea" filled />
+
+            <q-select
+              v-model="box.access_level"
+              :options="['private', 'public']"
+              label="Access Level"
+              filled
+            />
+
+            <q-btn type="submit" color="primary" label="Save Changes" class="q-mt-md" />
+            <q-btn color="grey-7" label="Cancel" @click="isEditing = false" class="q-mt-md" />
+          </q-form>
         </div>
 
-        <q-form v-else @submit.prevent="updateBox" class="q-gutter-md">
-          <q-input v-model="box.name" label="Name" filled />
-
-          <q-input v-model="box.description" label="Description" type="textarea" filled />
-
-          <q-select
-            v-model="box.access_level"
-            :options="['private', 'public']"
-            label="Access Level"
-            filled
-          />
-
-          <q-btn type="submit" color="primary" label="Save Changes" class="q-mt-md" />
-          <q-btn color="grey-7" label="Cancel" @click="isEditing = false" class="q-mt-md" />
-        </q-form>
-
-        <div class="q-mt-lg">
+        <!-- QR Code Column -->
+        <div class="col-12 col-md-4 q-pl-md-lg">
           <QRCodeCanvas :url="box.qr_code_url" />
           <p>Created: {{ new Date(box.created_time).toLocaleString() }}</p>
           <p>Updated: {{ new Date(box.date_updated).toLocaleString() }}</p>
         </div>
       </div>
+      <div class="row justify-left">
+        <q-btn color="primary" icon="add" label="Add Item" @click="openDialog" class="q-mt-md" />
+      </div>
 
-      <q-btn
-        color="primary"
-        icon="add"
-        label="Add Item"
-        @click="openDialog"
-        class="full-width q-mt-md"
-      />
-
-      <AddItemDialog :boxId="box.id" ref="addItemDialog" />
+      <AddItemDialog :boxId="box.id" ref="addItemDialog" @item-added="fetchBoxDetails" />
 
       <!-- Items List Section -->
       <div class="q-mt-lg">
@@ -68,6 +67,30 @@
               <q-item-label>{{ item.title }}</q-item-label>
               <q-item-label caption>{{ item.description }}</q-item-label>
             </q-item-section>
+            <q-item-section side>
+              <q-btn
+                flat
+                round
+                dense
+                color="negative"
+                icon="delete"
+                @click.stop="confirmDelete(item.id)"
+              />
+            </q-item-section>
+
+            <q-dialog v-model="deleteDialog" persistent>
+              <q-card>
+                <q-card-section class="row items-center">
+                  <q-avatar icon="warning" color="negative" text-color="white" />
+                  <span class="q-ml-sm">Are you sure you want to delete this item?</span>
+                </q-card-section>
+
+                <q-card-actions align="right">
+                  <q-btn flat label="Cancel" color="primary" v-close-popup />
+                  <q-btn flat label="Delete" color="negative" @click="deleteItem" v-close-popup />
+                </q-card-actions>
+              </q-card>
+            </q-dialog>
           </q-item>
         </q-list>
       </div>
@@ -91,6 +114,7 @@ const box = ref(null)
 const addItemDialog = ref(null)
 const items = ref([])
 const isEditing = ref(false)
+
 const openDialog = () => {
   addItemDialog.value.isOpen = true
 }
@@ -113,7 +137,7 @@ const updateBox = async () => {
   }
 }
 
-onMounted(async () => {
+const fetchBoxDetails = async () => {
   try {
     const boxId = route.params.box_id
     if (boxes.value.length === 0) {
@@ -126,6 +150,34 @@ onMounted(async () => {
   } catch (error) {
     console.error('Error fetching box details:', error)
   }
+}
+
+const deleteDialog = ref(false)
+
+const itemToDelete = ref(null)
+
+const confirmDelete = (itemId) => {
+  itemToDelete.value = itemId
+  deleteDialog.value = true
+}
+
+const deleteItem = async () => {
+  console.log('Deleting item:', itemToDelete.value)
+  try {
+    const { error } = await supabase.from('items').delete().eq('id', itemToDelete.value)
+    if (error) {
+      console.error('Error deleting item:', error)
+    } else {
+      console.log('Item deleted successfully')
+      fetchBoxDetails()
+    }
+  } catch (error) {
+    console.error('Error deleting item:', error)
+  }
+}
+
+onMounted(async () => {
+  fetchBoxDetails()
 })
 </script>
 

@@ -43,6 +43,7 @@ const props = defineProps({
     required: true,
   },
 })
+const emit = defineEmits(['item-added'])
 
 // Form inputs
 const name = ref('')
@@ -91,8 +92,9 @@ const saveItem = async () => {
     .from('items')
     .insert([{ name: name.value, description: description.value, box_id: props.boxId }])
     .select('id')
-  if (error) console.error('Error saving item:', error)
-  else {
+  if (error) {
+    console.error('Error saving item:', error)
+  } else {
     const itemId = itemData[0].id
     const { data: boxData } = await supabase.from('boxes').select('*').eq('id', props.boxId)
     if (boxData) {
@@ -102,6 +104,13 @@ const saveItem = async () => {
       })
     }
   }
+  // close dialog and reset form
+  isOpen.value = false
+  name.value = ''
+  description.value = ''
+  previewText.value = ''
+
+  emit('item-added')
 }
 
 // Utility function to capture an image (mock for now)
