@@ -30,7 +30,8 @@
 
 <script setup>
 import { ref } from 'vue'
-//import { BarcodeScanner } from '@capacitor/barcode-scanner';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
+import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
 import Tesseract from 'tesseract.js'
 import { supabase } from '../utils/supabase'
 import { useBoxesStore } from 'src/stores/boxes.store'
@@ -66,16 +67,14 @@ const scanText = async () => {
 // Function to scan barcode using Capacitor
 const scanBarcode = async () => {
   try {
-    // await BarcodeScanner.checkPermission({ force: true });
+    await CapacitorBarcodeScanner.checkPermission({ force: true })
+    CapacitorBarcodeScanner.hideBackground()
+    const result = await CapacitorBarcodeScanner.startScan()
 
-    // BarcodeScanner.hideBackground(); // Makes the background transparent for a better UI experience
-    // const result = await BarcodeScanner.startScan();
-
-    // if (result.hasContent) {
-    //   title.value = result.content;
-    //   previewText.value = `Barcode: ${result.content}`;
-    // }
-    console.log('Barcode Scanning goes here')
+    if (result.hasContent) {
+      name.value = result.content
+      previewText.value = `Barcode: ${result.content}`
+    }
   } catch (error) {
     console.error('Barcode Scan Error:', error)
   }
@@ -113,11 +112,24 @@ const saveItem = async () => {
   emit('item-added')
 }
 
-// Utility function to capture an image (mock for now)
 const captureImage = async () => {
-  // Implement image capture via file input or Capacitor camera API in future
-  //return 'path/to/sample-image.png'
-  console.log('Image Capture goes here')
+  try {
+    const image = await Camera.getPhoto({
+      quality: 90,
+      allowEditing: false,
+      resultType: CameraResultType.Base64,
+      source: CameraSource.Camera,
+    })
+
+    if (image.base64String) {
+      return `data:image/jpeg;base64,${image.base64String}`
+    } else {
+      throw new Error('No image captured')
+    }
+  } catch (error) {
+    console.error('Error capturing image:', error)
+    return null
+  }
 }
 
 // Expose `isOpen` to be controlled from the parent component

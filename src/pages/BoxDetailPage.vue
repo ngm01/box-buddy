@@ -64,19 +64,47 @@
         <q-list v-else bordered separator>
           <q-item v-for="item in items" :key="item.id">
             <q-item-section>
-              <q-item-label>{{ item.title }}</q-item-label>
+              <q-item-label>{{ item.name }}</q-item-label>
               <q-item-label caption>{{ item.description }}</q-item-label>
             </q-item-section>
             <q-item-section side>
-              <q-btn
-                flat
-                round
-                dense
-                color="negative"
-                icon="delete"
-                @click.stop="confirmDelete(item.id)"
-              />
+              <div class="row justify-right">
+                <q-btn
+                  flat
+                  round
+                  dense
+                  color="primary"
+                  icon="edit"
+                  @click.stop="openEditItemDialog(item)"
+                  class="q-mr-sm"
+                />
+                <q-btn
+                  flat
+                  round
+                  dense
+                  color="negative"
+                  icon="delete"
+                  @click.stop="confirmItemDelete(item.id)"
+                />
+              </div>
             </q-item-section>
+
+            <q-dialog v-model="editItemDialog" persistent>
+              <q-card class="q-pa-md" style="min-width: 400px; max-width: 80vw">
+                <q-card-section class="row items-center">
+                  <q-avatar icon="edit" color="primary" text-color="white" />
+                  <span class="q-ml-sm">Edit Item</span>
+                </q-card-section>
+                <q-card-section>
+                  <q-input v-model="item.name" label="Name" filled />
+                  <q-input v-model="item.description" label="Description" type="textarea" filled />
+                </q-card-section>
+                <q-card-actions align="right">
+                  <q-btn flat label="Cancel" color="primary" v-close-popup />
+                  <q-btn flat label="Save" color="primary" @click="saveItem" v-close-popup />
+                </q-card-actions>
+              </q-card>
+            </q-dialog>
 
             <q-dialog v-model="deleteDialog" persistent>
               <q-card>
@@ -146,9 +174,37 @@ const fetchBoxDetails = async () => {
     box.value = boxes.value.find((box) => box.id === boxId)
     const { data: itemsData } = await supabase.from('items').select('*').eq('box_id', boxId)
     items.value = itemsData
-    console.log('Box details fetched successfully', box.value, items.value)
+    //console.log('Box details fetched successfully', box.value, items.value)
   } catch (error) {
     console.error('Error fetching box details:', error)
+  }
+}
+
+const editItemDialog = ref(false)
+const itemToEdit = ref(null)
+
+const openEditItemDialog = (item) => {
+  itemToEdit.value = item
+  editItemDialog.value = true
+}
+
+const saveItem = async () => {
+  console.log('Saving item:', itemToEdit.value)
+  try {
+    const { error } = await supabase
+      .from('items')
+      .update(itemToEdit.value)
+      .eq('id', itemToEdit.value.id)
+    if (error) {
+      console.error('Error saving item:', error)
+    } else {
+      console.log('Item saved successfully')
+      fetchBoxDetails()
+      editItemDialog.value = false
+      itemToEdit.value = null
+    }
+  } catch (error) {
+    console.error('Error saving item:', error)
   }
 }
 
@@ -156,7 +212,7 @@ const deleteDialog = ref(false)
 
 const itemToDelete = ref(null)
 
-const confirmDelete = (itemId) => {
+const confirmItemDelete = (itemId) => {
   itemToDelete.value = itemId
   deleteDialog.value = true
 }
