@@ -1,18 +1,24 @@
 <template>
-  <div class="q-pa-md">
-    <q-form @submit="login">
-      <q-input autocomplete="email" v-model="email" label="Email" type="email" filled />
-      <q-input
-        autocomplete="current-password"
-        v-model="password"
-        label="Password"
-        type="password"
-        filled
-      />
-      <q-btn type="submit" color="primary" label="Login" />
-    </q-form>
-    <div v-if="error">
-      <h1>{{ error }}</h1>
+  <div class="q-pa-md text-center">
+    <div class="text-h4 q-mb-xl">Box Buddy 📦</div>
+    <div class="q-pa-md text-center">
+      <q-form @submit="login" class="q-gutter-y-md">
+        <q-input autocomplete="email" v-model="email" label="Email" type="email" filled />
+        <q-input
+          autocomplete="current-password"
+          v-model="password"
+          label="Password"
+          type="password"
+          filled
+        />
+        <q-btn type="submit" color="primary" label="Login" class="full-width" />
+      </q-form>
+      <div class="q-mt-md text-center">
+        Don't have an account? <router-link to="/signup">Sign up</router-link>
+      </div>
+      <div v-if="error">
+        <h1>{{ error }}</h1>
+      </div>
     </div>
   </div>
 </template>
@@ -40,4 +46,9 @@ const login = async () => {
 }
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.q-pa-md {
+  max-width: 400px;
+  margin: 0 auto;
+}
+</style>

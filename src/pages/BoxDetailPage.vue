@@ -128,16 +128,16 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useBoxesStore } from 'src/stores/boxes.store'
+//import { useBoxesStore } from 'src/stores/boxes.store'
 import { useRoute } from 'vue-router'
-import { storeToRefs } from 'pinia'
+//import { storeToRefs } from 'pinia'
 import QRCodeCanvas from 'src/components/QRCodeCanvas.vue'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import { supabase } from '../utils/supabase'
 
 const route = useRoute()
-const boxesStore = useBoxesStore()
-const { boxes } = storeToRefs(boxesStore)
+//const boxesStore = useBoxesStore()
+//const { boxes } = storeToRefs(boxesStore)
 const box = ref(null)
 const addItemDialog = ref(null)
 const items = ref([])
@@ -167,14 +167,32 @@ const updateBox = async () => {
 
 const fetchBoxDetails = async () => {
   try {
-    const boxId = route.params.box_id
-    if (boxes.value.length === 0) {
-      await boxesStore.fetchBoxes()
+    const { display_name, box_name } = route.params
+
+    // Fetch the specific box directly without join
+    const { data: boxData, error: boxError } = await supabase
+      .from('boxes')
+      .select('*')
+      .eq('display_name', display_name)
+      .eq('name', box_name)
+      .single()
+
+    if (boxError) {
+      console.error('Box fetch error:', boxError)
+      return
     }
-    box.value = boxes.value.find((box) => box.id === boxId)
-    const { data: itemsData } = await supabase.from('items').select('*').eq('box_id', boxId)
-    items.value = itemsData
-    //console.log('Box details fetched successfully', box.value, items.value)
+
+    if (!boxData) {
+      console.error('Box not found')
+      return
+    }
+
+    box.value = boxData
+
+    // Fetch items for the box using the box's ID
+    const { data: itemsData } = await supabase.from('items').select('*').eq('box_id', box.value.id)
+
+    items.value = itemsData || []
   } catch (error) {
     console.error('Error fetching box details:', error)
   }

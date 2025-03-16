@@ -17,7 +17,7 @@ export const useBoxesStore = defineStore('boxes', () => {
     const { data, error } = await supabase.from('boxes').select('*').eq('user_id', user.id)
 
     if (error) throw error
-    console.log('boxes fetched:', data)
+    //console.log('boxes fetched:', data)
     boxes.value = data
   }
 
@@ -25,10 +25,15 @@ export const useBoxesStore = defineStore('boxes', () => {
     const user = authStore.user
     if (!user) throw new Error('User not authenticated')
 
+    // Get display_name from user metadata
+    const display_name = user.user_metadata?.display_name
+    console.log('display_name', display_name)
+    if (!display_name) throw new Error('User display name not found')
+
     // First, insert the box into Supabase to get its ID
     const { data, error } = await supabase
       .from('boxes')
-      .insert([{ ...boxData, user_id: user.id }])
+      .insert([{ ...boxData, user_id: user.id, display_name }])
       .select('*')
       .single()
     console.log('box store createBox data', data)
@@ -36,7 +41,7 @@ export const useBoxesStore = defineStore('boxes', () => {
     if (error) throw error
 
     const boxId = data.id
-    const boxUrl = `https://${DOMAIN}/box/${boxId}`
+    const boxUrl = `https://${DOMAIN}/boxes/${data.display_name}/${data.name}`
     console.log('boxUrl', boxUrl)
 
     // const QRCodeOpts = {

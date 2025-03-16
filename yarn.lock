@@ -83,6 +83,11 @@
   dependencies:
     tslib "^2.1.0"
 
+"@capacitor/ios@^7.1.0":
+  version "7.1.0"
+  resolved "https://registry.yarnpkg.com/@capacitor/ios/-/ios-7.1.0.tgz#2b983666bdc74701c9c35f01aada910f48100e12"
+  integrity sha512-ND7GNxtBRnD6Az14D5YRFKFL4VtdLeXE6Zym1SVcKac0NZF18n4DBympBcnfCR61421FCmRlswbpPa9Fr+Czxw==
+
 "@esbuild/aix-ppc64@0.24.2":
   version "0.24.2"
   resolved "https://registry.yarnpkg.com/@esbuild/aix-ppc64/-/aix-ppc64-0.24.2.tgz#38848d3e25afe842a7943643cbcd387cc6e13461"
