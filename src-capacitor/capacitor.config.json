@@ -1,5 +1,6 @@
 {
-  "appId": "com.boxbuddy.app",
-  "appName": "box-buddy",
-  "webDir": "www"
+  "appId": "io.boxbuddy.dev",
+  "appName": "Box Buddy",
+  "webDir": "dist/spa",
+  "bundledWebRuntime": false
 }

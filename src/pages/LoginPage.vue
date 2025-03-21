@@ -3,13 +3,27 @@
     <div class="text-h4 q-mb-xl">Box Buddy 📦</div>
     <div class="q-pa-md text-center">
       <q-form @submit="login" class="q-gutter-y-md">
-        <q-input autocomplete="email" v-model="email" label="Email" type="email" filled />
+        <q-input
+          autocomplete="email"
+          v-model="email"
+          label="Email"
+          type="email"
+          filled
+          autocorrect="off"
+          spellcheck="false"
+          inputmode="email"
+          autocapitalize="off"
+        />
         <q-input
           autocomplete="current-password"
           v-model="password"
           label="Password"
           type="password"
           filled
+          autocorrect="off"
+          spellcheck="false"
+          inputmode="password"
+          autocapitalize="off"
         />
         <q-btn type="submit" color="primary" label="Login" class="full-width" />
       </q-form>

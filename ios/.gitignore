@@ -1,0 +1,19 @@
+App/build
+App/Pods
+App/output
+App/App/public
+DerivedData
+xcuserdata
+
+# Cordova plugins for Capacitor
+capacitor-cordova-ios-plugins
+
+# Generated Config files
+App/App/capacitor.config.json
+App/App/config.xml
+
+# Ignore temporary files
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserstate

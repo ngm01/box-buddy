@@ -11,7 +11,7 @@
       </q-card-section>
 
       <q-card-section class="row justify-center q-gutter-md">
-        <q-btn @click="scanText" icon="camera_alt" label="OCR Scan" />
+        <q-btn @click="scanText" icon="camera_alt" label="Scan Text" />
         <q-btn @click="scanBarcode" icon="qr_code_scanner" label="Scan Barcode" />
         <q-btn v-if="enableAI" @click="identifyImage" icon="image_search" label="AI Identify" />
       </q-card-section>
@@ -21,7 +21,7 @@
       </q-card-section>
 
       <q-card-actions align="right">
-        <q-btn flat label="Cancel" v-close-popup />
+        <q-btn flat label="Cancel" @click="cancel" v-close-popup />
         <q-btn color="primary" @click="saveItem" label="Save" />
       </q-card-actions>
     </q-card>
@@ -50,7 +50,7 @@ const emit = defineEmits(['item-added'])
 const name = ref('')
 const description = ref('')
 const previewText = ref('')
-const enableAI = ref(false) // V2/Paid Feature
+const enableAI = ref(true) // V2/Paid Feature
 
 // Function to scan text via OCR
 const scanText = async () => {
@@ -110,6 +110,13 @@ const saveItem = async () => {
   previewText.value = ''
 
   emit('item-added')
+}
+
+const cancel = () => {
+  // isOpen.value = false
+  name.value = ''
+  description.value = ''
+  previewText.value = ''
 }
 
 const captureImage = async () => {
