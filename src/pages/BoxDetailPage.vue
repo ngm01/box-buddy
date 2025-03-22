@@ -21,6 +21,13 @@
               @click="isEditing = true"
               class="q-mb-lg"
             />
+            <q-btn
+              label="View QR Code"
+              icon="qr_code"
+              @click="showQRCodeDialog"
+              class="q-mb-lg"
+              color="primary"
+            />
           </div>
 
           <q-form v-else @submit.prevent="updateBox" class="q-gutter-md">
@@ -145,6 +152,11 @@ const isEditing = ref(false)
 
 const openDialog = () => {
   addItemDialog.value.isOpen = true
+}
+
+const showQRCodeDialog = () => {
+  // Placeholder for QR code dialog
+  console.log('Show QR Code Dialog')
 }
 
 const updateBox = async () => {
