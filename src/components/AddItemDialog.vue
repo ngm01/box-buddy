@@ -32,7 +32,6 @@
 import { ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
-import Tesseract from 'tesseract.js'
 import { supabase } from '../utils/supabase'
 import { useBoxesStore } from 'src/stores/boxes.store'
 const boxesStore = useBoxesStore()
@@ -53,14 +52,71 @@ const previewText = ref('')
 const enableAI = ref(true) // V2/Paid Feature
 
 // Function to scan text via OCR
+// REST API docs: https://cloud.google.com/vision/docs/reference/rest
+// https://cloud.google.com/vision/docs/reference/rest/v1/images/annotate
 const scanText = async () => {
   try {
-    const image = await captureImage()
-    const { data } = await Tesseract.recognize(image, 'eng')
-    previewText.value = data.text.trim()
-    name.value = previewText.value
+    const imageData = await captureImage()
+    if (!imageData) {
+      throw new Error('Failed to capture image')
+    }
+
+    const apiKey = process.env.GOOGLE_VISION_API_KEY
+    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: {
+              content: imageData.split(',')[1], // Remove the data:image/jpeg;base64, prefix
+            },
+            features: [
+              {
+                type: 'TEXT_DETECTION',
+              },
+            ],
+          },
+        ],
+      }),
+    })
+
+    const result = await response.json()
+    const text = result.responses[0]?.fullTextAnnotation?.text
+
+    if (text) {
+      console.log('Detected text:', text)
+      previewText.value = text
+      description.value = text
+    } else {
+      console.error('No text detected in the image')
+      previewText.value = 'No text detected'
+    }
   } catch (error) {
-    console.error('OCR Error:', error)
+    console.error('Error scanning text:', error)
+    previewText.value = 'Error scanning text'
+  }
+}
+
+const captureImage = async () => {
+  try {
+    const image = await Camera.getPhoto({
+      quality: 90,
+      allowEditing: false,
+      resultType: CameraResultType.Base64,
+      source: CameraSource.Camera,
+    })
+
+    if (image.base64String) {
+      return `data:image/jpeg;base64,${image.base64String}`
+    } else {
+      throw new Error('No image captured')
+    }
+  } catch (error) {
+    console.error('Error capturing image:', error)
+    return null
   }
 }
 
@@ -117,26 +173,6 @@ const cancel = () => {
   name.value = ''
   description.value = ''
   previewText.value = ''
-}
-
-const captureImage = async () => {
-  try {
-    const image = await Camera.getPhoto({
-      quality: 90,
-      allowEditing: false,
-      resultType: CameraResultType.Base64,
-      source: CameraSource.Camera,
-    })
-
-    if (image.base64String) {
-      return `data:image/jpeg;base64,${image.base64String}`
-    } else {
-      throw new Error('No image captured')
-    }
-  } catch (error) {
-    console.error('Error capturing image:', error)
-    return null
-  }
 }
 
 // Expose `isOpen` to be controlled from the parent component

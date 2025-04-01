@@ -46,19 +46,21 @@
             <q-btn color="grey-7" label="Cancel" @click="isEditing = false" class="q-mt-md" />
           </q-form>
         </div>
-
-        <!-- QR Code Column -->
-        <div class="col-12 col-md-4 q-pl-md-lg">
-          <QRCodeCanvas :url="box.qr_code_url" />
-          <p>Created: {{ new Date(box.created_time).toLocaleString() }}</p>
-          <p>Updated: {{ new Date(box.date_updated).toLocaleString() }}</p>
-        </div>
+        <p>Created: {{ new Date(box.created_time).toLocaleString() }}</p>
+        <p>Updated: {{ new Date(box.date_updated).toLocaleString() }}</p>
       </div>
       <div class="row justify-left">
-        <q-btn color="primary" icon="add" label="Add Item" @click="openDialog" class="q-mt-md" />
+        <q-btn
+          color="primary"
+          icon="add"
+          label="Add Item"
+          @click="showAddItemDialog"
+          class="q-mt-md"
+        />
       </div>
 
       <AddItemDialog :boxId="box.id" ref="addItemDialog" @item-added="fetchBoxDetails" />
+      <QRCodeDialog ref="qrCodeDialog" :box="box" />
 
       <!-- Items List Section -->
       <div class="q-mt-lg">
@@ -138,25 +140,25 @@ import { ref, onMounted } from 'vue'
 //import { useBoxesStore } from 'src/stores/boxes.store'
 import { useRoute } from 'vue-router'
 //import { storeToRefs } from 'pinia'
-import QRCodeCanvas from 'src/components/QRCodeCanvas.vue'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import { supabase } from '../utils/supabase'
+import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 
 const route = useRoute()
 //const boxesStore = useBoxesStore()
 //const { boxes } = storeToRefs(boxesStore)
 const box = ref(null)
 const addItemDialog = ref(null)
+const qrCodeDialog = ref(null)
 const items = ref([])
 const isEditing = ref(false)
 
-const openDialog = () => {
+const showAddItemDialog = () => {
   addItemDialog.value.isOpen = true
 }
 
 const showQRCodeDialog = () => {
-  // Placeholder for QR code dialog
-  console.log('Show QR Code Dialog')
+  qrCodeDialog.value.isOpen = true
 }
 
 const updateBox = async () => {
