@@ -37,7 +37,7 @@ export default defineRouter(function (/* { store, ssrContext } */) {
   Router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
     // Ensure we have the latest auth state
-    await authStore.fetchUser()
+    //await authStore.fetchUser()
 
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
       next('/login')

@@ -1,42 +1,92 @@
-// src/stores/auth.js
+// auth.store.js — captures/stores JWT via your API proxy
 import { defineStore } from 'pinia'
-import { ref, computed, watchEffect } from 'vue'
-import { supabase } from '../utils/supabase'
+import { ref, computed } from 'vue'
+import axios from 'axios'
+
+const API_BASE = 'https://api.boxbuddy.io/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
+  const accessToken = ref(null)
+  const refreshToken = ref(null)
 
-  // Check if user is already signed in
-  async function fetchUser() {
-    const { data } = await supabase.auth.getSession()
-    user.value = data.session?.user || null
+  const token = computed(() => accessToken.value)
+
+  const persist = () => {
+    try {
+      localStorage.setItem('bb_user', JSON.stringify(user.value))
+      localStorage.setItem('bb_access', accessToken.value || '')
+      localStorage.setItem('bb_refresh', refreshToken.value || '')
+    } catch (e) {
+      console.error('Persist error', e)
+    }
   }
 
-  async function signUp(email, password, displayName) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { display_name: displayName } },
-    })
-    if (error) throw error
-    user.value = data.user
+  const loadFromStorage = () => {
+    try {
+      const u = localStorage.getItem('bb_user')
+      user.value = u ? JSON.parse(u) : null
+      accessToken.value = localStorage.getItem('bb_access') || null
+      refreshToken.value = localStorage.getItem('bb_refresh') || null
+    } catch (e) {
+      console.error('Load error', e)
+    }
   }
 
-  async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    user.value = data.user
+  const signup = async ({ email, password }) => {
+    try {
+      await axios.post(`${API_BASE}/signup`, { email, password })
+      return true
+    } catch (err) {
+      console.error('Signup failed:', err)
+      throw err
+    }
   }
 
-  async function signOut() {
-    await supabase.auth.signOut()
-    user.value = null
+  const login = async ({ email, password }) => {
+    try {
+      // Supabase expects grant_type=password on /auth/v1/token
+      const { data } = await axios.post(
+        `${API_BASE}/token?grant_type=password`,
+        { email, password },
+        {
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+      accessToken.value = data.access_token
+      refreshToken.value = data.refresh_token
+      // Optionally call /auth/user to fetch profile
+      const me = await axios.get(`${API_BASE}/user`, {
+        headers: { Authorization: `Bearer ${accessToken.value}` },
+      })
+      user.value = me.data
+      persist()
+      return true
+    } catch (err) {
+      console.error('Login failed:', err)
+      logout() // ensure we clear any partial state
+      throw err
+    }
   }
 
-  const isAuthenticated = computed(() => !!user.value)
+  const logout = async () => {
+    try {
+      if (accessToken.value) {
+        await axios.post(
+          `${API_BASE}/logout`,
+          {},
+          { headers: { Authorization: `Bearer ${accessToken.value}` } },
+        )
+      }
+    } catch (err) {
+      console.warn('Logout call failed (continuing):', err)
+    } finally {
+      accessToken.value = null
+      refreshToken.value = null
+      user.value = null
+      persist()
+    }
+  }
 
-  // Keep user in sync with Supabase session
-  watchEffect(fetchUser)
-
-  return { user, fetchUser, signUp, signIn, signOut, isAuthenticated }
+  return { user, token, accessToken, refreshToken, loadFromStorage, signup, login, logout }
 })

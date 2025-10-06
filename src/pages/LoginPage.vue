@@ -52,7 +52,7 @@ const error = ref('')
 
 const login = async () => {
   try {
-    await authStore.signIn(email.value, password.value)
+    await authStore.login(email.value, password.value)
     router.push('/')
   } catch (err) {
     error.value = err.message

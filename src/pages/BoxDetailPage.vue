@@ -7,27 +7,22 @@
       <div class="row q-pa-md">
         <!-- Box Details Column -->
         <div class="col-12 col-md-8">
-          <h2 class="text-h6">Box Details</h2>
           <div v-if="!isEditing">
             <div class="q-mb-md">
               <div class="text-h6">{{ box.name }}</div>
-              <div class="text-subtitle2">{{ box.description }}</div>
+              <div class="">{{ box.description }}</div>
               <div class="text-caption">Access Level: {{ box.access_level }}</div>
             </div>
-            <q-btn
-              color="primary"
-              icon="edit"
-              label="Edit Details"
-              @click="isEditing = true"
-              class="q-mb-lg"
-            />
-            <q-btn
-              label="View QR Code"
-              icon="qr_code"
-              @click="showQRCodeDialog"
-              class="q-mb-lg"
-              color="primary"
-            />
+            <div class="q-pa-md q-gutter-sm">
+              <q-btn color="primary" icon="edit" label="Edit Details" @click="isEditing = true" />
+              <q-btn
+                label="View QR Code"
+                icon="qr_code"
+                @click="showQRCodeDialog"
+                color="primary"
+              />
+              <q-btn color="primary" icon="add" label="Add Item" @click="showAddItemDialog" />
+            </div>
           </div>
 
           <q-form v-else @submit.prevent="updateBox" class="q-gutter-md">
@@ -45,20 +40,12 @@
             <q-btn type="submit" color="primary" label="Save Changes" class="q-mt-md" />
             <q-btn color="grey-7" label="Cancel" @click="isEditing = false" class="q-mt-md" />
           </q-form>
+          <div>
+            <p>Created: {{ new Date(box.created_time).toLocaleString() }}</p>
+            <p>Last updated: {{ new Date(box.date_updated).toLocaleString() }}</p>
+          </div>
         </div>
-        <p>Created: {{ new Date(box.created_time).toLocaleString() }}</p>
-        <p>Updated: {{ new Date(box.date_updated).toLocaleString() }}</p>
       </div>
-      <div class="row justify-left">
-        <q-btn
-          color="primary"
-          icon="add"
-          label="Add Item"
-          @click="showAddItemDialog"
-          class="q-mt-md"
-        />
-      </div>
-
       <AddItemDialog :boxId="box.id" ref="addItemDialog" @item-added="fetchBoxDetails" />
       <QRCodeDialog ref="qrCodeDialog" :box="box" />
 

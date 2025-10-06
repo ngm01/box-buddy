@@ -2,5 +2,12 @@
   "appId": "io.boxbuddy.dev",
   "appName": "Box Buddy",
   "webDir": "dist/spa",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "LIGHT",
+      "backgroundColor": "#1976D2"
+    }
+  }
 }

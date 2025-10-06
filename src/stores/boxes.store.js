@@ -1,24 +1,27 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { supabase } from '../utils/supabase'
-// import QRCode from 'qrcode'
-
+import axios from 'axios'
 import { useAuthStore } from './auth.store'
+
 const authStore = useAuthStore()
 const DOMAIN = process.env.DOMAIN
+const API_BASE = `https://api.boxbuddy.io/boxes`
 
 export const useBoxesStore = defineStore('boxes', () => {
   const boxes = ref([])
 
+  const authHeader = () => ({
+    Authorization: `Bearer ${authStore.token || ''}`,
+  })
+
   const fetchBoxes = async () => {
-    const user = authStore.user
-    if (!user) throw new Error('User not authenticated')
-
-    const { data, error } = await supabase.from('boxes').select('*').eq('user_id', user.id)
-
-    if (error) throw error
-    //console.log('boxes fetched:', data)
-    boxes.value = data
+    try {
+      const res = await axios.get(API_BASE, { headers: authHeader() })
+      boxes.value = res.data
+    } catch (error) {
+      console.error('Error fetching boxes:', error)
+      throw error
+    }
   }
 
   const createBox = async (boxData) => {
@@ -31,95 +34,63 @@ export const useBoxesStore = defineStore('boxes', () => {
     if (!display_name) throw new Error('User display name not found')
 
     // First, insert the box into Supabase to get its ID
-    const { data, error } = await supabase
-      .from('boxes')
-      .insert([{ ...boxData, user_id: user.id, display_name }])
-      .select('*')
-      .single()
-    console.log('box store createBox data', data)
+    let boxRes
+    try {
+      boxRes = await axios.post(
+        API_BASE,
+        {
+          ...boxData,
+          user_id: user.id,
+          display_name,
+        },
+        { headers: authHeader() },
+      )
+    } catch (error) {
+      console.error('Error creating box:', error)
+      throw error
+    }
 
-    if (error) throw error
+    const box = boxRes.data
+    const boxId = box.id
+    console.log('boxId', boxId)
 
-    const boxId = data.id
-    const boxUrl = `https://${DOMAIN}/boxes/${data.display_name}/${data.name}`
+    const boxUrl = `https://${DOMAIN}/boxes/${display_name}/${box.name}`
     console.log('boxUrl', boxUrl)
 
-    // const QRCodeOpts = {
-    //   errorCorrectionLevel: 'H',
-    //   type: 'image/jpeg',
-    //   quality: 0.3,
-    //   margin: 1,
-    //   color: {
-    //     dark: '#010599FF',
-    //     light: '#FFBF60FF',
-    //   },
-    // }
-    //
-    // // Generate QR Code as a Blob
-    // const qrCodeData = await QRCode.toDataURL(boxUrl, QRCodeOpts)
-    // console.log('qrCodeData', qrCodeData)
-    // // Upload QR Code to Supabase Storage
-    // const qrUrl = await uploadQRCodeToDb(boxId, qrCodeData)
-    // console.log('QR Code URL:', qrUrl)
-
-    // Update the box with the QR code URL
     try {
-      await supabase.from('boxes').update({ qr_code_url: boxUrl }).eq('id', boxId)
+      await axios.patch(
+        `${API_BASE}/?id=eq.${boxId}`,
+        {
+          qr_code_url: boxUrl,
+        },
+        { headers: authHeader() },
+      )
     } catch (error) {
       console.error('Error updating box with QR code URL:', error)
     }
 
-    return { ...data, qr_code_url: boxUrl }
+    return { ...box, qr_code_url: boxUrl }
   }
-
-  /*
-  const uploadQRCodeToDb = async (boxId, qrCodeData) => {
-    // Refresh authentication session before making the request
-    // const { refreshData, refreshError } = await supabase.auth.refreshSession()
-    // if (refreshError) {
-    //   console.error('Session refresh failed:', refreshError.message)
-    //   throw new Error('Session refresh failed. Please log in again.')
-    // }
-
-    // console.log('Session refreshed:', refreshData)
-
-    const user = authStore.user
-    if (!user) throw new Error('User not authenticated')
-    console.log('user.role:', user.role)
-
-    const fileName = `qr_${boxId}.png`
-    const { data, error } = await supabase.storage.from('qr-codes').upload(fileName, qrCodeData, {
-      contentType: 'image/png',
-    })
-
-    if (error) throw error
-    if (data) {
-      console.log('QR Code uploaded successfully:', data)
-    }
-
-    // Get public URL
-    const storageData = supabase.storage.from('qr-codes').getPublicUrl(fileName)
-    return storageData.data.publicUrl
-  }
-    */
 
   const updateBox = async (id, boxData) => {
-    const user = authStore.user
-    if (!user) throw new Error('User not authenticated')
-
-    const { data, error } = await supabase.from('boxes').update(boxData).eq('id', id)
-    if (error) throw error
-    return data
+    try {
+      const res = await axios.patch(`${API_BASE}/?id=eq.${id}`, boxData, { headers: authHeader() })
+      return res.data
+    } catch (error) {
+      console.error('Error updating box:', error)
+      throw error
+    }
   }
 
   const deleteBox = async (id) => {
-    const user = authStore.user
-    if (!user) throw new Error('User not authenticated')
-
-    const { data, error } = await supabase.from('boxes').delete().eq('id', id)
-
-    if (error) throw error
-    return data
+    try {
+      // eslint-disable-next-line no-unused-vars
+      const res = await axios.delete(`${API_BASE}/?id=eq.${id}`, { headers: authHeader() })
+      boxes.value = boxes.value.filter((box) => box.id !== id)
+    } catch (error) {
+      console.error('Error deleting box:', error)
+      throw error
+    }
   }
 
   return { boxes, fetchBoxes, createBox, updateBox, deleteBox }

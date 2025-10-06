@@ -75,7 +75,7 @@ const scanText = async () => {
             },
             features: [
               {
-                type: 'TEXT_DETECTION',
+                type: 'DOCUMENT_TEXT_DETECTION',
               },
             ],
           },
@@ -83,8 +83,8 @@ const scanText = async () => {
       }),
     })
 
-    const result = await response.json()
-    const text = result.responses[0]?.fullTextAnnotation?.text
+    const json = await response.json()
+    const text = json.responses?.[0]?.fullTextAnnotation?.pages?.[0]?.blocks || []
 
     if (text) {
       console.log('Detected text:', text)
