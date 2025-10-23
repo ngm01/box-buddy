@@ -5,7 +5,7 @@ import { useAuthStore } from './auth.store'
 
 const authStore = useAuthStore()
 const DOMAIN = process.env.DOMAIN
-const API_BASE = `https://api.boxbuddy.io/boxes`
+const API_BASE = `https://api.boxbuddy.io/boxes/`
 
 export const useBoxesStore = defineStore('boxes', () => {
   const boxes = ref([])
@@ -16,6 +16,7 @@ export const useBoxesStore = defineStore('boxes', () => {
 
   const fetchBoxes = async () => {
     try {
+      console.log('auth header: ', authHeader())
       const res = await axios.get(API_BASE, { headers: authHeader() })
       boxes.value = res.data
     } catch (error) {

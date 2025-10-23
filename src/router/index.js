@@ -39,9 +39,9 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     // Ensure we have the latest auth state
     //await authStore.fetchUser()
 
-    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    if (to.meta.requiresAuth && !authStore.user) {
       next('/login')
-    } else if (to.path === '/login' && authStore.isAuthenticated) {
+    } else if (to.path === '/login' && authStore.user) {
       next('/home')
     } else {
       next()

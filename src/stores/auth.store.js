@@ -1,6 +1,6 @@
 // auth.store.js — captures/stores JWT via your API proxy
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, unref } from 'vue'
 import axios from 'axios'
 
 const API_BASE = 'https://api.boxbuddy.io/auth'
@@ -34,6 +34,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const signup = async ({ email, password }) => {
+    email = typeof email === 'string' ? email : unref(email)
+    password = typeof password === 'string' ? password : unref(password)
     try {
       await axios.post(`${API_BASE}/signup`, { email, password })
       return true
@@ -43,7 +45,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const login = async ({ email, password }) => {
+  const login = async (email, password) => {
+    console.log('Login called with:', email)
+    email = typeof email === 'string' ? email : unref(email)
+    password = typeof password === 'string' ? password : unref(password)
     try {
       // Supabase expects grant_type=password on /auth/v1/token
       const { data } = await axios.post(
