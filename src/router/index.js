@@ -42,7 +42,7 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     if (to.meta.requiresAuth && !authStore.user) {
       next('/login')
     } else if (to.path === '/login' && authStore.user) {
-      next('/home')
+      next('/')
     } else {
       next()
     }
