@@ -46,17 +46,24 @@ const router = useRouter()
 import { useAuthStore } from 'src/stores/auth.store'
 const authStore = useAuthStore()
 
+import { useQuasar } from 'quasar'
+const $q = useQuasar()
+
 const email = ref('')
 const password = ref('')
 const error = ref('')
 
 const login = async () => {
+  $q.loading.show()
+
   try {
     console.log('Attempting login with:', email.value)
     await authStore.login(email.value, password.value)
     router.push('/')
   } catch (err) {
     error.value = err.message
+  } finally {
+    $q.loading.hide()
   }
 }
 </script>
