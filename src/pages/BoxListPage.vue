@@ -1,6 +1,5 @@
 <template>
   <q-page class="q-pa-md">
-    <!-- List of boxes -->
     <q-list v-if="boxes.length" bordered separator>
       <q-item v-for="box in boxes" :key="box.id" clickable>
         <q-item-section @click="goToBoxDetail(box.display_name, box.name)">
@@ -19,18 +18,16 @@
 
     <q-banner v-if="errorMessage" color="negative" class="q-mt-md">{{ errorMessage }}</q-banner>
 
-    <q-btn color="primary" class="q-mt-md" @click="showCreateBoxModal = true">
-      + Create New Box
-    </q-btn>
+    <PaywallGate feature="boxes">
+      <q-btn color="primary" class="q-mt-md" @click="openCreateBoxModal"> + Create New Box </q-btn>
+    </PaywallGate>
 
-    <!-- Modal for Creating a Box -->
     <q-dialog v-model="showCreateBoxModal">
       <q-card class="q-pa-md" style="width: 400px; max-width: 80vw">
         <q-card-section>
           <div class="text-h6">Create New Box</div>
         </q-card-section>
 
-        <!-- Box creation form -->
         <q-form @submit.prevent="handleCreateBox">
           <q-card-section>
             <q-input v-model="box.name" label="Box Name" filled />
@@ -50,16 +47,13 @@
               />
               <q-icon name="info" color="primary" size="sm">
                 <q-tooltip>
-                  <span v-if="box.access_level === 'private'">
-                    Only you can view and manage this box
-                  </span>
+                  <span v-if="box.access_level === 'private'">Only you can view and manage this box</span>
                   <span v-else> Anyone with an account can view this box </span>
                 </q-tooltip>
               </q-icon>
             </div>
           </q-card-section>
 
-          <!-- Submit and Cancel Buttons -->
           <q-card-actions align="right">
             <q-btn type="submit" color="primary" label="Create" />
             <q-btn color="negative" label="Cancel" @click="showCreateBoxModal = false" />
@@ -68,7 +62,6 @@
       </q-card>
     </q-dialog>
 
-    <!-- Modal for Deleting a Box -->
     <q-dialog v-model="showDeleteModal">
       <q-card class="q-pa-md" style="width: 400px; max-width: 80vw">
         <q-card-section>
@@ -88,17 +81,6 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
-    <!-- Modal for box creation success -->
-    <q-dialog v-model="showBoxCreatedModal">
-      <q-card class="q-pa-md" style="width: 400px; max-width: 80vw">
-        <!-- Display QR Code if generated -->
-        <q-card-section v-if="qrCode" class="q-mt-sm text-center">
-          <div class="text-subtitle1">QR Code:</div>
-          <img :src="qrCode" alt="QR Code" class="q-mt-sm" />
-        </q-card-section>
-      </q-card>
-    </q-dialog>
   </q-page>
 </template>
 
@@ -107,41 +89,60 @@ import { useBoxesStore } from 'src/stores/boxes.store'
 import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
+import { useSubscription } from 'src/composables/useSubscription'
+import { normalizeApiError } from 'src/utils/apiErrors'
+import PaywallGate from 'src/components/paywall/PaywallGate.vue'
+
 const router = useRouter()
 const boxesStore = useBoxesStore()
 const { boxes } = storeToRefs(boxesStore)
 const box = ref({ name: '', description: '', access_level: 'private' })
 const selectedBox = ref(null)
 const showCreateBoxModal = ref(false)
-const showBoxCreatedModal = ref(false)
 const showDeleteModal = ref(false)
-const qrCode = ref('')
 const errorMessage = ref('')
 
+const { requireEntitlement, setUsageCounts, openPaywallModal } = useSubscription()
+
+const openCreateBoxModal = () => {
+  if (!requireEntitlement({ feature: 'boxes', reason: 'You reached the box limit for your plan.' })) {
+    return
+  }
+  showCreateBoxModal.value = true
+}
+
 const handleCreateBox = async () => {
+  if (!requireEntitlement({ feature: 'boxes', reason: 'You reached the box limit for your plan.' })) {
+    showCreateBoxModal.value = false
+    return
+  }
+
   try {
-    const result = await boxesStore.createBox(box.value)
-    console.log('box creation result:', result)
-    //showBoxCreatedModal.value = true
+    await boxesStore.createBox(box.value)
   } catch (error) {
-    console.log('error creating box:', error)
-    errorMessage.value = error.message
+    const normalized = normalizeApiError(error)
+    errorMessage.value = normalized.message
+
+    if (normalized.action === 'open_paywall') {
+      openPaywallModal(normalized.feature || 'boxes', {
+        reason: normalized.message,
+        details: normalized.details,
+      })
+    }
   } finally {
-    qrCode.value = ''
     showCreateBoxModal.value = false
     box.value = { name: '', description: '', access_level: 'private' }
     await boxesStore.fetchBoxes()
+    setUsageCounts({ boxCount: boxes.value.length })
   }
 }
 
 const goToBoxDetail = (display_name, name) => {
-  // Navigate to the box detail page
   router.push('/boxes/' + display_name + '/' + name)
 }
 
 const confirmDelete = (id) => {
-  // Show the delete confirmation modal
-  selectedBox.value = boxes.value.find((box) => box.id === id)
+  selectedBox.value = boxes.value.find((nextBox) => nextBox.id === id)
   showDeleteModal.value = true
 }
 
@@ -150,17 +151,16 @@ const deleteBox = async () => {
     await boxesStore.deleteBox(selectedBox.value.id)
     showDeleteModal.value = false
   } catch (error) {
-    console.log('error deleting box:', error)
     errorMessage.value = error.message
   } finally {
     selectedBox.value = null
     await boxesStore.fetchBoxes()
+    setUsageCounts({ boxCount: boxes.value.length })
   }
 }
 
 onMounted(async () => {
   await boxesStore.fetchBoxes()
+  setUsageCounts({ boxCount: boxes.value.length })
 })
 </script>
-
-<style lang="scss" scoped></style>

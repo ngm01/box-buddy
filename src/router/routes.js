@@ -9,6 +9,10 @@ const routes = [
         path: '/boxes/:display_name/:box_name',
         component: () => import('src/pages/BoxDetailPage.vue'),
       },
+      {
+        path: '/settings/billing',
+        component: () => import('src/pages/settings/BillingSettingsPage.vue'),
+      },
     ],
     meta: { requiresAuth: true },
   },

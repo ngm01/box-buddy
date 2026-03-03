@@ -11,7 +11,7 @@ export const useBoxesStore = defineStore('boxes', () => {
   const boxes = ref([])
 
   const authHeader = () => ({
-    Authorization: `Bearer ${authStore.token || ''}`,
+    Authorization: `Bearer ${authStore.accessToken || ''}`,
   })
 
   const fetchBoxes = async () => {

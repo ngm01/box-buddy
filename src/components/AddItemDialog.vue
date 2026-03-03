@@ -30,12 +30,18 @@
 
 <script setup>
 import { ref } from 'vue'
+import axios from 'axios'
+import { useQuasar } from 'quasar'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
 import { supabase } from '../utils/supabase'
 import { useBoxesStore } from 'src/stores/boxes.store'
+import { useSubscription } from 'src/composables/useSubscription'
+import { normalizeApiError } from 'src/utils/apiErrors'
+
 const boxesStore = useBoxesStore()
-// Dialog visibility
+const $q = useQuasar()
+
 const isOpen = ref(false)
 const props = defineProps({
   boxId: {
@@ -45,15 +51,13 @@ const props = defineProps({
 })
 const emit = defineEmits(['item-added'])
 
-// Form inputs
 const name = ref('')
 const description = ref('')
 const previewText = ref('')
-const enableAI = ref(true) // V2/Paid Feature
+const enableAI = ref(true)
 
-// Function to scan text via OCR
-// REST API docs: https://cloud.google.com/vision/docs/reference/rest
-// https://cloud.google.com/vision/docs/reference/rest/v1/images/annotate
+const { requireEntitlement, openPaywallModal, setUsageCounts, usage } = useSubscription()
+
 const scanText = async () => {
   try {
     const imageData = await captureImage()
@@ -71,7 +75,7 @@ const scanText = async () => {
         requests: [
           {
             image: {
-              content: imageData.split(',')[1], // Remove the data:image/jpeg;base64, prefix
+              content: imageData.split(',')[1],
             },
             features: [
               {
@@ -87,11 +91,9 @@ const scanText = async () => {
     const text = json.responses?.[0]?.fullTextAnnotation?.pages?.[0]?.blocks || []
 
     if (text) {
-      console.log('Detected text:', text)
       previewText.value = text
       description.value = text
     } else {
-      console.error('No text detected in the image')
       previewText.value = 'No text detected'
     }
   } catch (error) {
@@ -111,16 +113,15 @@ const captureImage = async () => {
 
     if (image.base64String) {
       return `data:image/jpeg;base64,${image.base64String}`
-    } else {
-      throw new Error('No image captured')
     }
+
+    throw new Error('No image captured')
   } catch (error) {
     console.error('Error capturing image:', error)
     return null
   }
 }
 
-// Function to scan barcode using Capacitor
 const scanBarcode = async () => {
   try {
     await CapacitorBarcodeScanner.checkPermission({ force: true })
@@ -136,17 +137,49 @@ const scanBarcode = async () => {
   }
 }
 
-// Function to use AI image recognition (V2 Feature)
 const identifyImage = async () => {
-  alert('AI Recognition is a paid feature and coming soon!')
+  if (!requireEntitlement({ feature: 'ai', reason: 'Monthly AI recognition limit reached.' })) {
+    return
+  }
+
+  try {
+    const imageData = await captureImage()
+    if (!imageData) {
+      throw new Error('Could not capture an image for AI recognition.')
+    }
+
+    const { data } = await axios.post('https://api.boxbuddy.io/ai/recognize', {
+      image: imageData,
+    })
+
+    name.value = data?.label || name.value
+    description.value = data?.description || description.value
+    previewText.value = data?.label ? `AI identified: ${data.label}` : 'AI scan complete'
+  } catch (error) {
+    const normalized = normalizeApiError(error)
+
+    if (normalized.action === 'open_paywall') {
+      openPaywallModal(normalized.feature || 'ai', {
+        reason: normalized.message,
+        details: normalized.details,
+      })
+      return
+    }
+
+    $q.notify({ type: 'negative', message: normalized.message })
+  }
 }
 
-// Function to save item to Supabase
 const saveItem = async () => {
+  if (!requireEntitlement({ feature: 'items', reason: 'You reached the item limit for your plan.' })) {
+    return
+  }
+
   const { data: itemData, error } = await supabase
     .from('items')
     .insert([{ name: name.value, description: description.value, box_id: props.boxId }])
     .select('id')
+
   if (error) {
     console.error('Error saving item:', error)
   } else {
@@ -158,8 +191,9 @@ const saveItem = async () => {
         items: [...boxData[0].items, itemId],
       })
     }
+    setUsageCounts({ itemCountTotal: usage.value.item_count_total + 1 })
   }
-  // close dialog and reset form
+
   isOpen.value = false
   name.value = ''
   description.value = ''
@@ -169,13 +203,11 @@ const saveItem = async () => {
 }
 
 const cancel = () => {
-  // isOpen.value = false
   name.value = ''
   description.value = ''
   previewText.value = ''
 }
 
-// Expose `isOpen` to be controlled from the parent component
 defineExpose({ isOpen })
 </script>
 
