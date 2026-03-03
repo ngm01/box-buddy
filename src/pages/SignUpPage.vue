@@ -73,6 +73,11 @@ const confirmPassword = ref('')
 const error = ref('')
 const message = ref('')
 
+const getSignupSuccessRedirectUrl = () => {
+  const baseUrl = process.env.APP_URL || window.location.origin
+  return new URL('/signup-success', baseUrl).toString()
+}
+
 const signUp = async () => {
   $q.loading.show()
 
