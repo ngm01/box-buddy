@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import axios from 'axios'
+import { ref, unref } from 'vue'
+import apiClient from 'src/utils/apiClient'
 import { useAuthStore } from './auth.store'
 
 const authStore = useAuthStore()
@@ -26,7 +26,7 @@ export const useBoxesStore = defineStore('boxes', () => {
   }
 
   const authHeader = () => ({
-    Authorization: `Bearer ${authStore.token || ''}`,
+    Authorization: `Bearer ${unref(authStore.token) || ''}`,
   })
 
   const fetchBoxes = async (searchTerm = '') => {
@@ -59,7 +59,7 @@ export const useBoxesStore = defineStore('boxes', () => {
     // First, insert the box into Supabase to get its ID
     let boxRes
     try {
-      boxRes = await axios.post(
+      boxRes = await apiClient.post(
         API_BASE,
         {
           ...boxData,
@@ -82,7 +82,7 @@ export const useBoxesStore = defineStore('boxes', () => {
     console.log('boxUrl', boxUrl)
 
     try {
-      await axios.patch(
+      await apiClient.patch(
         `${API_BASE}/?id=eq.${boxId}`,
         {
           qr_code_url: boxUrl,
@@ -98,14 +98,7 @@ export const useBoxesStore = defineStore('boxes', () => {
 
   const updateBox = async (id, boxData) => {
     try {
-      const res = await axios.patch(
-        `${API_BASE}/?id=eq.${id}`,
-        {
-          ...boxData,
-          tags: normalizeTags(boxData.tags),
-        },
-        { headers: authHeader() },
-      )
+      const res = await apiClient.patch(`${API_BASE}/?id=eq.${id}`, boxData, { headers: authHeader() })
       return res.data
     } catch (error) {
       console.error('Error updating box:', error)
@@ -116,7 +109,7 @@ export const useBoxesStore = defineStore('boxes', () => {
   const deleteBox = async (id) => {
     try {
       // eslint-disable-next-line no-unused-vars
-      const res = await axios.delete(`${API_BASE}/?id=eq.${id}`, { headers: authHeader() })
+      const res = await apiClient.delete(`${API_BASE}/?id=eq.${id}`, { headers: authHeader() })
       boxes.value = boxes.value.filter((box) => box.id !== id)
     } catch (error) {
       console.error('Error deleting box:', error)
