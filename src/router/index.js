@@ -8,15 +8,6 @@ import {
 import { useAuthStore } from 'src/stores/auth.store'
 import routes from './routes'
 
-/*
- * If not building with SSR mode, you can
- * directly export the Router instantiation;
- *
- * The function below can be async too; either use
- * async/await or return a Promise which resolves
- * with the Router instance.
- */
-
 export default defineRouter(function (/* { store, ssrContext } */) {
   const createHistory = process.env.SERVER
     ? createMemoryHistory
@@ -27,25 +18,26 @@ export default defineRouter(function (/* { store, ssrContext } */) {
   const Router = createRouter({
     scrollBehavior: () => ({ left: 0, top: 0 }),
     routes,
-
-    // Leave this as is and make changes in quasar.conf.js instead!
-    // quasar.conf.js -> build -> vueRouterMode
-    // quasar.conf.js -> build -> publicPath
     history: createHistory(process.env.VUE_ROUTER_BASE),
   })
 
-  Router.beforeEach(async (to, from, next) => {
+  Router.beforeEach((to, from, next) => {
     const authStore = useAuthStore()
-    // Ensure we have the latest auth state
-    //await authStore.fetchUser()
+    authStore.loadFromStorage()
 
-    if (to.meta.requiresAuth && !authStore.user) {
-      next('/login')
-    } else if (to.path === '/login' && authStore.user) {
-      next('/')
-    } else {
-      next()
+    const hasValidSession = authStore.hasValidSession()
+
+    if (to.meta.requiresAuth && !hasValidSession) {
+      next({ path: '/login', query: { redirect: to.fullPath } })
+      return
     }
+
+    if (to.path === '/login' && hasValidSession) {
+      next('/')
+      return
+    }
+
+    next()
   })
 
   return Router

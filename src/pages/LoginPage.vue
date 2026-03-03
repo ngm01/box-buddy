@@ -30,6 +30,9 @@
         />
         <q-btn type="submit" color="primary" label="Login" class="full-width" />
       </q-form>
+      <div class="q-mt-sm text-right">
+        <router-link to="/forgot-password">Forgot password?</router-link>
+      </div>
       <div class="q-mt-md text-center">
         Don't have an account? <router-link to="/signup">Sign up</router-link>
       </div>
@@ -46,6 +49,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
+const route = useRoute()
 
 import { useAuthStore } from 'src/stores/auth.store'
 const authStore = useAuthStore()
@@ -71,7 +75,8 @@ const login = async () => {
   try {
     console.log('Attempting login with:', email.value)
     await authStore.login(email.value, password.value)
-    router.push('/')
+    const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    router.push(redirectTo)
   } catch (err) {
     error.value = err.message
   } finally {
