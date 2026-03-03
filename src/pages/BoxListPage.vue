@@ -3,7 +3,7 @@
     <!-- List of boxes -->
     <q-list v-if="boxes.length" bordered separator>
       <q-item v-for="box in boxes" :key="box.id" clickable>
-        <q-item-section @click="goToBoxDetail(box.display_name, box.name)">
+        <q-item-section @click="goToBoxDetail(box.id)">
           <q-item-label>{{ box.name }}</q-item-label>
           <q-item-label caption>{{ box.description }}</q-item-label>
         </q-item-section>
@@ -134,9 +134,8 @@ const handleCreateBox = async () => {
   }
 }
 
-const goToBoxDetail = (display_name, name) => {
-  // Navigate to the box detail page
-  router.push('/boxes/' + display_name + '/' + name)
+const goToBoxDetail = (id) => {
+  router.push(`/boxes/${encodeURIComponent(id)}`)
 }
 
 const confirmDelete = (id) => {

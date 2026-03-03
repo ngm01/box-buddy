@@ -4,7 +4,7 @@ import axios from 'axios'
 import { useAuthStore } from './auth.store'
 
 const authStore = useAuthStore()
-const DOMAIN = process.env.DOMAIN
+const DOMAIN = process.env.DOMAIN || 'boxbuddy.io'
 const API_BASE = `https://api.boxbuddy.io/boxes/`
 
 export const useBoxesStore = defineStore('boxes', () => {
@@ -55,7 +55,8 @@ export const useBoxesStore = defineStore('boxes', () => {
     const boxId = box.id
     console.log('boxId', boxId)
 
-    const boxUrl = `https://${DOMAIN}/boxes/${display_name}/${box.name}`
+    const normalizedDomain = DOMAIN.replace(/^https?:\/\//, '')
+    const boxUrl = `https://${normalizedDomain}/boxes/${boxId}`
     console.log('boxUrl', boxUrl)
 
     try {

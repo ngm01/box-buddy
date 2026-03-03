@@ -125,13 +125,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 //import { useBoxesStore } from 'src/stores/boxes.store'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 //import { storeToRefs } from 'pinia'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import { supabase } from '../utils/supabase'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 
 const route = useRoute()
+const router = useRouter()
 //const boxesStore = useBoxesStore()
 //const { boxes } = storeToRefs(boxesStore)
 const box = ref(null)
@@ -168,15 +169,20 @@ const updateBox = async () => {
 
 const fetchBoxDetails = async () => {
   try {
-    const { display_name, box_name } = route.params
+    const { id, display_name, box_name } = route.params
 
-    // Fetch the specific box directly without join
-    const { data: boxData, error: boxError } = await supabase
-      .from('boxes')
-      .select('*')
-      .eq('display_name', display_name)
-      .eq('name', box_name)
-      .single()
+    let boxQuery = supabase.from('boxes').select('*')
+
+    if (id) {
+      boxQuery = boxQuery.eq('id', id)
+    } else if (display_name && box_name) {
+      boxQuery = boxQuery.eq('display_name', display_name).eq('name', box_name)
+    } else {
+      console.error('Invalid box route params')
+      return
+    }
+
+    const { data: boxData, error: boxError } = await boxQuery.single()
 
     if (boxError) {
       console.error('Box fetch error:', boxError)
@@ -189,6 +195,10 @@ const fetchBoxDetails = async () => {
     }
 
     box.value = boxData
+
+    if (!id && display_name && box_name) {
+      await router.replace(`/boxes/${encodeURIComponent(boxData.id)}`)
+    }
 
     // Fetch items for the box using the box's ID
     const { data: itemsData } = await supabase.from('items').select('*').eq('box_id', box.value.id)
