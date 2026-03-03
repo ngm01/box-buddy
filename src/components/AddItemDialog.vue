@@ -92,6 +92,21 @@
         </q-list>
       </q-card-section>
 
+      <q-card-section v-if="provisionalItems.length">
+        <div class="text-subtitle1 q-mb-sm">AI Identified Items</div>
+        <q-list bordered separator>
+          <q-item v-for="(item, index) in provisionalItems" :key="`${item.name}-${index}`">
+            <q-item-section>
+              <q-item-label>{{ item.name }}</q-item-label>
+              <q-item-label caption>{{ item.description || 'No notes' }}</q-item-label>
+              <q-item-label caption>
+                Center: {{ item.coordinates?.x ?? 'n/a' }}, {{ item.coordinates?.y ?? 'n/a' }}
+              </q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-card-section>
+
       <q-card-actions align="right">
         <q-btn flat label="Cancel" @click="cancel" v-close-popup />
         <q-btn
