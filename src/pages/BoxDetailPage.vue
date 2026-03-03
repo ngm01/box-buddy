@@ -124,7 +124,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-//import { useBoxesStore } from 'src/stores/boxes.store'
+import { useBoxesStore } from 'src/stores/boxes.store'
+import { useItemsStore } from 'src/stores/items.store'
 import { useRoute } from 'vue-router'
 //import { storeToRefs } from 'pinia'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
@@ -132,7 +133,8 @@ import { supabase } from '../utils/supabase'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 
 const route = useRoute()
-//const boxesStore = useBoxesStore()
+const boxesStore = useBoxesStore()
+const itemsStore = useItemsStore()
 //const { boxes } = storeToRefs(boxesStore)
 const box = ref(null)
 const addItemDialog = ref(null)
@@ -149,20 +151,15 @@ const showQRCodeDialog = () => {
 }
 
 const updateBox = async () => {
-  // eslint-disable-next-line no-unused-vars
-  const { data, error } = await supabase
-    .from('boxes')
-    .update({
+  try {
+    await boxesStore.updateBox(box.value.id, {
       name: box.value.name,
       description: box.value.description,
       access_level: box.value.access_level,
     })
-    .eq('id', box.value.id)
-
-  if (error) {
-    console.error('Error updating box:', error)
-  } else {
     console.log('Box updated successfully')
+  } catch (error) {
+    console.error('Error updating box:', error)
   }
 }
 
@@ -210,18 +207,15 @@ const openEditItemDialog = (item) => {
 const saveItem = async () => {
   console.log('Saving item:', itemToEdit.value)
   try {
-    const { error } = await supabase
-      .from('items')
-      .update(itemToEdit.value)
-      .eq('id', itemToEdit.value.id)
-    if (error) {
-      console.error('Error saving item:', error)
-    } else {
-      console.log('Item saved successfully')
-      fetchBoxDetails()
-      editItemDialog.value = false
-      itemToEdit.value = null
-    }
+    await itemsStore.updateItem(itemToEdit.value.id, {
+      name: itemToEdit.value.name,
+      description: itemToEdit.value.description,
+    })
+
+    console.log('Item saved successfully')
+    fetchBoxDetails()
+    editItemDialog.value = false
+    itemToEdit.value = null
   } catch (error) {
     console.error('Error saving item:', error)
   }
@@ -239,13 +233,9 @@ const confirmItemDelete = (itemId) => {
 const deleteItem = async () => {
   console.log('Deleting item:', itemToDelete.value)
   try {
-    const { error } = await supabase.from('items').delete().eq('id', itemToDelete.value)
-    if (error) {
-      console.error('Error deleting item:', error)
-    } else {
-      console.log('Item deleted successfully')
-      fetchBoxDetails()
-    }
+    await itemsStore.deleteItem(itemToDelete.value)
+    console.log('Item deleted successfully')
+    fetchBoxDetails()
   } catch (error) {
     console.error('Error deleting item:', error)
   }

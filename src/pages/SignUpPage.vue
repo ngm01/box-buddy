@@ -57,12 +57,11 @@
 
 <script setup>
 import { ref } from 'vue'
-//import { useRouter } from 'vue-router'
-//import { useAuthStore } from 'src/stores/auth.store'
-import { supabase } from '../utils/supabase'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from 'src/stores/auth.store'
 
-//const router = useRouter()
-//const authStore = useAuthStore()
+const router = useRouter()
+const authStore = useAuthStore()
 
 const displayName = ref('')
 const email = ref('')
@@ -74,44 +73,16 @@ const signUp = async () => {
   try {
     error.value = ''
 
-    // Check if display name is already taken
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('display_name')
-      .eq('display_name', displayName.value)
-      .single()
-
-    if (existingUser) {
-      error.value = 'Display name is already taken'
-      return
-    }
-
-    // Create the user account
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    await authStore.signup({
       email: email.value,
       password: password.value,
-      options: {
-        data: {
-          display_name: displayName.value,
-        },
-      },
-      redirectTo: 'http://localhost:9000/signup-success',
+      display_name: displayName.value,
+      redirect_to: `${window.location.origin}/signup-success`,
     })
 
-    if (authError) throw authError
-
-    // Create profile record
-    const { error: profileError } = await supabase.from('profiles').insert([
-      {
-        id: authData.user.id,
-        display_name: displayName.value,
-        email: email.value,
-      },
-    ])
-
-    if (profileError) throw profileError
+    router.push('/signup-success')
   } catch (err) {
-    error.value = err.message
+    error.value = err.response?.data?.message || err.message
   }
 }
 </script>

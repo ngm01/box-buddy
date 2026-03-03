@@ -1,22 +1,23 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, unref } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from './auth.store'
 
-const authStore = useAuthStore()
 const DOMAIN = process.env.DOMAIN
-const API_BASE = `https://api.boxbuddy.io/boxes/`
+const API_BASE = 'https://api.boxbuddy.io/boxes/'
 
 export const useBoxesStore = defineStore('boxes', () => {
   const boxes = ref([])
 
-  const authHeader = () => ({
-    Authorization: `Bearer ${authStore.token || ''}`,
-  })
+  const authHeader = () => {
+    const authStore = useAuthStore()
+    return {
+      Authorization: `Bearer ${unref(authStore.token) || ''}`,
+    }
+  }
 
   const fetchBoxes = async () => {
     try {
-      console.log('auth header: ', authHeader())
       const res = await axios.get(API_BASE, { headers: authHeader() })
       boxes.value = res.data
     } catch (error) {
@@ -26,15 +27,14 @@ export const useBoxesStore = defineStore('boxes', () => {
   }
 
   const createBox = async (boxData) => {
+    const authStore = useAuthStore()
     const user = authStore.user
+
     if (!user) throw new Error('User not authenticated')
 
-    // Get display_name from user metadata
     const display_name = user.user_metadata?.display_name
-    console.log('display_name', display_name)
     if (!display_name) throw new Error('User display name not found')
 
-    // First, insert the box into Supabase to get its ID
     let boxRes
     try {
       boxRes = await axios.post(
@@ -53,10 +53,7 @@ export const useBoxesStore = defineStore('boxes', () => {
 
     const box = boxRes.data
     const boxId = box.id
-    console.log('boxId', boxId)
-
     const boxUrl = `https://${DOMAIN}/boxes/${display_name}/${box.name}`
-    console.log('boxUrl', boxUrl)
 
     try {
       await axios.patch(
@@ -85,8 +82,7 @@ export const useBoxesStore = defineStore('boxes', () => {
 
   const deleteBox = async (id) => {
     try {
-      // eslint-disable-next-line no-unused-vars
-      const res = await axios.delete(`${API_BASE}/?id=eq.${id}`, { headers: authHeader() })
+      await axios.delete(`${API_BASE}/?id=eq.${id}`, { headers: authHeader() })
       boxes.value = boxes.value.filter((box) => box.id !== id)
     } catch (error) {
       console.error('Error deleting box:', error)

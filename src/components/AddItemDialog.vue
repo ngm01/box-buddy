@@ -32,9 +32,9 @@
 import { ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
-import { supabase } from '../utils/supabase'
-import { useBoxesStore } from 'src/stores/boxes.store'
-const boxesStore = useBoxesStore()
+import { useItemsStore } from 'src/stores/items.store'
+
+const itemsStore = useItemsStore()
 // Dialog visibility
 const isOpen = ref(false)
 const props = defineProps({
@@ -141,31 +141,24 @@ const identifyImage = async () => {
   alert('AI Recognition is a paid feature and coming soon!')
 }
 
-// Function to save item to Supabase
+// Function to save item through API gateway
 const saveItem = async () => {
-  const { data: itemData, error } = await supabase
-    .from('items')
-    .insert([{ name: name.value, description: description.value, box_id: props.boxId }])
-    .select('id')
-  if (error) {
-    console.error('Error saving item:', error)
-  } else {
-    const itemId = itemData[0].id
-    const { data: boxData } = await supabase.from('boxes').select('*').eq('id', props.boxId)
-    if (boxData) {
-      await boxesStore.updateBox(props.boxId, {
-        ...boxData[0],
-        items: [...boxData[0].items, itemId],
-      })
-    }
-  }
-  // close dialog and reset form
-  isOpen.value = false
-  name.value = ''
-  description.value = ''
-  previewText.value = ''
+  try {
+    await itemsStore.createItem({
+      name: name.value,
+      description: description.value,
+      box_id: props.boxId,
+    })
 
-  emit('item-added')
+    emit('item-added')
+  } catch (error) {
+    console.error('Error saving item:', error)
+  } finally {
+    isOpen.value = false
+    name.value = ''
+    description.value = ''
+    previewText.value = ''
+  }
 }
 
 const cancel = () => {
