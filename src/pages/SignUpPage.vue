@@ -46,8 +46,9 @@
 
       <q-btn type="submit" color="primary" label="Sign Up" class="full-width" />
     </q-form>
-    <div class="q-mt-md text-center">
-      Already have an account? <router-link to="/login">Log in</router-link>
+    <div class="q-mt-md text-center">Already have an account? <router-link to="/login">Log in</router-link></div>
+    <div v-if="message" class="text-positive q-mt-md">
+      {{ message }}
     </div>
     <div v-if="error" class="text-negative q-mt-md">
       {{ error }}
@@ -59,30 +60,55 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth.store'
+import { useQuasar } from 'quasar'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const $q = useQuasar()
 
 const displayName = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
+const message = ref('')
 
 const signUp = async () => {
+  $q.loading.show()
+
   try {
     error.value = ''
+    message.value = ''
 
-    await authStore.signup({
+    if (password.value !== confirmPassword.value) {
+      error.value = 'Passwords do not match'
+      return
+    }
+
+    const result = await authStore.signup({
+      displayName: displayName.value,
       email: email.value,
       password: password.value,
-      display_name: displayName.value,
-      redirect_to: `${window.location.origin}/signup-success`,
+      redirectTo: `${window.location.origin}/signup-success`,
     })
 
-    router.push('/signup-success')
+    if (!result.ok) {
+      error.value = result.message
+      return
+    }
+
+    if (result.requiresEmailVerification) {
+      message.value = result.message || 'Please check your email to confirm your account.'
+      router.push('/signup-success')
+      return
+    }
+
+    message.value = result.message || 'Sign up successful.'
+    router.push('/')
   } catch (err) {
-    error.value = err.response?.data?.message || err.message
+    error.value = err.message
+  } finally {
+    $q.loading.hide()
   }
 }
 </script>

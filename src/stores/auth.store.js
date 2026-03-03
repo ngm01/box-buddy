@@ -38,6 +38,27 @@ export const useAuthStore = defineStore('auth', () => {
   const token = computed(() => accessToken.value)
   const isAuthenticated = computed(() => !!accessToken.value && !isTokenExpired(accessToken.value))
 
+  const getErrorMessage = (err, fallback) => {
+    return (
+      err?.response?.data?.message ||
+      err?.response?.data?.error_description ||
+      err?.response?.data?.error ||
+      err?.message ||
+      fallback
+    )
+  }
+
+  const normalizeAuthResult = ({ ok, message = '', data = null, error = null }) => ({
+    ok,
+    message,
+    user: data?.user || null,
+    accessToken: data?.access_token || null,
+    refreshToken: data?.refresh_token || null,
+    requiresEmailVerification: Boolean(data?.requires_email_verification || data?.email_confirmation_sent),
+    error,
+    raw: data,
+  })
+
   const persist = () => {
     try {
       localStorage.setItem('bb_user', JSON.stringify(user.value))
@@ -106,8 +127,9 @@ export const useAuthStore = defineStore('auth', () => {
       })
       return true
     } catch (err) {
-      console.error('Signup failed:', err)
-      throw err
+      const message = getErrorMessage(err, 'Sign up failed')
+      console.error('Signup failed:', message, err)
+      return normalizeAuthResult({ ok: false, message, error: err })
     }
   }
 
@@ -130,7 +152,14 @@ export const useAuthStore = defineStore('auth', () => {
       })
       user.value = me.data
       persist()
-      return true
+      return normalizeAuthResult({
+        ok: true,
+        message: 'Login successful',
+        data: {
+          ...data,
+          user: me.data,
+        },
+      })
     } catch (err) {
       console.error('Login failed:', err)
       logout()
@@ -139,6 +168,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const logout = async () => {
+    let message = 'Logged out'
     try {
       if (accessToken.value) {
         await axios.post(
@@ -149,12 +179,15 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (err) {
       console.warn('Logout call failed (continuing):', err)
+      message = getErrorMessage(err, 'Logged out locally')
     } finally {
       accessToken.value = null
       refreshToken.value = null
       user.value = null
       persist()
     }
+
+    return normalizeAuthResult({ ok: true, message })
   }
 
   return {
