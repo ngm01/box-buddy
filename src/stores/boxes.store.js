@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, unref } from 'vue'
 import apiClient from 'src/utils/apiClient'
 import { useAuthStore } from './auth.store'
+import { getQrBaseUrlOrThrow } from 'src/config/app.config'
 
 const authStore = useAuthStore()
 const DOMAIN = process.env.DOMAIN || 'boxbuddy.io'
@@ -75,7 +76,11 @@ export const useBoxesStore = defineStore('boxes', () => {
 
     const box = boxRes.data
     const boxId = box.id
-    const boxUrl = `https://${DOMAIN}/boxes/${display_name}/${box.name}`
+    console.log('boxId', boxId)
+
+    const qrBaseUrl = getQrBaseUrlOrThrow()
+    const boxUrl = `${qrBaseUrl}/boxes/${display_name}/${box.name}`
+    console.log('boxUrl', boxUrl)
 
     try {
       await apiClient.patch(
