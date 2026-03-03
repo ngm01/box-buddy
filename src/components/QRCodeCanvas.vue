@@ -15,6 +15,31 @@ const props = defineProps({
 
 const canvasRef = ref(null)
 
+const getQRCodeDataUrl = () => {
+  if (!canvasRef.value) {
+    return null
+  }
+
+  return canvasRef.value.toDataURL('image/png')
+}
+
+const getQRCodeBlob = async () => {
+  if (!canvasRef.value) {
+    return null
+  }
+
+  return await new Promise((resolve) => {
+    canvasRef.value.toBlob((blob) => {
+      resolve(blob)
+    }, 'image/png')
+  })
+}
+
+defineExpose({
+  getQRCodeDataUrl,
+  getQRCodeBlob,
+})
+
 onMounted(async () => {
   if (canvasRef.value) {
     try {
