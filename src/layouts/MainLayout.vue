@@ -38,21 +38,37 @@
             <q-item-label caption>your boxes</q-item-label>
           </q-item-section>
         </q-item>
+
+        <q-item clickable tag="router-link" to="/settings/billing">
+          <q-item-section avatar>
+            <q-icon name="payments" />
+          </q-item-section>
+
+          <q-item-section>
+            <q-item-label>Billing</q-item-label>
+            <q-item-label caption>subscription & limits</q-item-label>
+          </q-item-section>
+        </q-item>
       </q-list>
     </q-drawer>
 
     <q-page-container>
       <router-view />
     </q-page-container>
+
+    <PaywallModal />
   </q-layout>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useAuthStore } from '../stores/auth.store'
 import { useRouter } from 'vue-router'
+import { useSubscriptionStore } from 'src/stores/subscription.store'
+import PaywallModal from 'src/components/paywall/PaywallModal.vue'
 
 const authStore = useAuthStore()
+const subscriptionStore = useSubscriptionStore()
 const router = useRouter()
 
 const leftDrawerOpen = ref(false)
@@ -65,4 +81,8 @@ function handleLogout() {
   authStore.logout()
   router.push('/login')
 }
+
+onMounted(async () => {
+  await subscriptionStore.fetchSubscription()
+})
 </script>

@@ -9,6 +9,10 @@ const routes = [
         path: '/boxes/:display_name/:box_name',
         component: () => import('src/pages/BoxDetailPage.vue'),
       },
+      {
+        path: '/settings/billing',
+        component: () => import('src/pages/settings/BillingSettingsPage.vue'),
+      },
     ],
     meta: { requiresAuth: true },
   },
@@ -23,6 +27,15 @@ const routes = [
   {
     path: '/signup-success',
     component: () => import('pages/SignUpSuccessPage.vue'),
+  },
+
+  {
+    path: '/forgot-password',
+    component: () => import('pages/ForgotPasswordPage.vue'),
+  },
+  {
+    path: '/reset-password',
+    component: () => import('pages/ResetPasswordPage.vue'),
   },
 
   // Always leave this as last one,
