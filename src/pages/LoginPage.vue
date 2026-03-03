@@ -58,7 +58,13 @@ const login = async () => {
 
   try {
     console.log('Attempting login with:', email.value)
-    await authStore.login(email.value, password.value)
+    const result = await authStore.login(email.value, password.value)
+
+    if (!result.ok) {
+      error.value = result.message
+      return
+    }
+
     router.push('/')
   } catch (err) {
     error.value = err.message

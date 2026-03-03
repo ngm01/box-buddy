@@ -46,8 +46,9 @@
 
       <q-btn type="submit" color="primary" label="Sign Up" class="full-width" />
     </q-form>
-    <div class="q-mt-md text-center">
-      Already have an account? <router-link to="/login">Log in</router-link>
+    <div class="q-mt-md text-center">Already have an account? <router-link to="/login">Log in</router-link></div>
+    <div v-if="message" class="text-positive q-mt-md">
+      {{ message }}
     </div>
     <div v-if="error" class="text-negative q-mt-md">
       {{ error }}
@@ -57,61 +58,57 @@
 
 <script setup>
 import { ref } from 'vue'
-//import { useRouter } from 'vue-router'
-//import { useAuthStore } from 'src/stores/auth.store'
-import { supabase } from '../utils/supabase'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from 'src/stores/auth.store'
+import { useQuasar } from 'quasar'
 
-//const router = useRouter()
-//const authStore = useAuthStore()
+const router = useRouter()
+const authStore = useAuthStore()
+const $q = useQuasar()
 
 const displayName = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
+const message = ref('')
 
 const signUp = async () => {
+  $q.loading.show()
+
   try {
     error.value = ''
+    message.value = ''
 
-    // Check if display name is already taken
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('display_name')
-      .eq('display_name', displayName.value)
-      .single()
-
-    if (existingUser) {
-      error.value = 'Display name is already taken'
+    if (password.value !== confirmPassword.value) {
+      error.value = 'Passwords do not match'
       return
     }
 
-    // Create the user account
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const result = await authStore.signup({
+      displayName: displayName.value,
       email: email.value,
       password: password.value,
-      options: {
-        data: {
-          display_name: displayName.value,
-        },
-      },
-      redirectTo: 'http://localhost:9000/signup-success',
+      redirectTo: `${window.location.origin}/signup-success`,
     })
 
-    if (authError) throw authError
+    if (!result.ok) {
+      error.value = result.message
+      return
+    }
 
-    // Create profile record
-    const { error: profileError } = await supabase.from('profiles').insert([
-      {
-        id: authData.user.id,
-        display_name: displayName.value,
-        email: email.value,
-      },
-    ])
+    if (result.requiresEmailVerification) {
+      message.value = result.message || 'Please check your email to confirm your account.'
+      router.push('/signup-success')
+      return
+    }
 
-    if (profileError) throw profileError
+    message.value = result.message || 'Sign up successful.'
+    router.push('/')
   } catch (err) {
     error.value = err.message
+  } finally {
+    $q.loading.hide()
   }
 }
 </script>
