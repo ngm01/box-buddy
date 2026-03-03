@@ -3,8 +3,9 @@ import { ref, unref } from 'vue'
 import apiClient from 'src/utils/apiClient'
 import { useAuthStore } from './auth.store'
 
-const DOMAIN = process.env.DOMAIN
-const API_BASE = 'https://api.boxbuddy.io/boxes/'
+const authStore = useAuthStore()
+const DOMAIN = process.env.DOMAIN || 'boxbuddy.io'
+const API_BASE = `https://api.boxbuddy.io/boxes/`
 
 export const useBoxesStore = defineStore('boxes', () => {
   const boxes = ref([])

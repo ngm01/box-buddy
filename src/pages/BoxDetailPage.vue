@@ -155,18 +155,18 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useBoxesStore } from 'src/stores/boxes.store'
-import { useItemsStore } from 'src/stores/items.store'
-import { useRoute } from 'vue-router'
+//import { useBoxesStore } from 'src/stores/boxes.store'
+import { useRoute, useRouter } from 'vue-router'
+//import { storeToRefs } from 'pinia'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 import { useBoxesStore } from 'src/stores/boxes.store'
 import { useItemsStore } from 'src/stores/items.store'
 
 const route = useRoute()
-const boxesStore = useBoxesStore()
-const itemsStore = useItemsStore()
-
+const router = useRouter()
+//const boxesStore = useBoxesStore()
+//const { boxes } = storeToRefs(boxesStore)
 const box = ref(null)
 const boxDraft = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const addItemDialog = ref(null)
@@ -220,17 +220,22 @@ const startEditingBox = () => {
   isEditing.value = true
 }
 
-const cancelEdit = () => {
-  isEditing.value = false
-}
-
 const fetchBoxDetails = async () => {
-  const { display_name, box_name } = route.params
-  await boxesStore.fetchBoxes()
-  box.value = boxesStore.boxes.find(
-    (boxEntry) => boxEntry.display_name === display_name && boxEntry.name === box_name,
-  )
-}
+  try {
+    const { id, display_name, box_name } = route.params
+
+    let boxQuery = supabase.from('boxes').select('*')
+
+    if (id) {
+      boxQuery = boxQuery.eq('id', id)
+    } else if (display_name && box_name) {
+      boxQuery = boxQuery.eq('display_name', display_name).eq('name', box_name)
+    } else {
+      console.error('Invalid box route params')
+      return
+    }
+
+    const { data: boxData, error: boxError } = await boxQuery.single()
 
 const fetchItems = async () => {
   if (!box.value?.id) return
@@ -247,8 +252,12 @@ const handleItemSearch = () => {
   }, 250)
 }
 
-const updateBox = async () => {
-  if (!box.value?.id) return
+    if (!id && display_name && box_name) {
+      await router.replace(`/boxes/${encodeURIComponent(boxData.id)}`)
+    }
+
+    // Fetch items for the box using the box's ID
+    const { data: itemsData } = await supabase.from('items').select('*').eq('box_id', box.value.id)
 
   try {
     await boxesStore.updateBox(box.value.id, {
