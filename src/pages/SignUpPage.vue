@@ -85,8 +85,20 @@ const signUp = async () => {
     error.value = ''
     message.value = ''
 
-    if (password.value !== confirmPassword.value) {
-      error.value = 'Passwords do not match'
+    // Validate through a trusted database function so the client only handles UI state.
+    const { data: validation, error: validationError } = await supabase.rpc(
+      'validate_signup_display_name',
+      {
+        p_display_name: displayName.value,
+      },
+    )
+
+    if (validationError) {
+      throw new Error('Unable to validate your display name right now. Please try again.')
+    }
+
+    if (!validation?.ok) {
+      error.value = validation?.message || 'Display name validation failed'
       return
     }
 
@@ -102,18 +114,18 @@ const signUp = async () => {
       return
     }
 
-    if (result.requiresEmailVerification) {
-      message.value = result.message || 'Please check your email to confirm your account.'
-      router.push('/signup-success')
+    if (!authData?.user) {
+      throw new Error('Sign up did not return a user. Please try again.')
+    }
+  } catch (err) {
+    const message = err?.message || ''
+
+    if (message.includes('display_name_taken')) {
+      error.value = 'Display name is already taken'
       return
     }
 
-    message.value = result.message || 'Sign up successful.'
-    router.push('/')
-  } catch (err) {
-    error.value = err.message
-  } finally {
-    $q.loading.hide()
+    error.value = message || 'Unable to sign up right now. Please try again.'
   }
 }
 </script>
