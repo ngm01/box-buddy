@@ -155,6 +155,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useBoxesStore } from 'src/stores/boxes.store'
+import { useItemsStore } from 'src/stores/items.store'
 import { useRoute } from 'vue-router'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'

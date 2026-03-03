@@ -93,6 +93,7 @@ import { computed, ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
 import { useItemsStore } from 'src/stores/items.store'
+
 const itemsStore = useItemsStore()
 // Dialog visibility
 const isOpen = ref(false)
@@ -289,7 +290,7 @@ const identifyImage = async () => {
   alert('AI Recognition is a paid feature and coming soon!')
 }
 
-// Function to save item through API
+// Function to save item through API gateway
 const saveItem = async () => {
   try {
     await itemsStore.createItem({
@@ -312,10 +313,13 @@ const saveItem = async () => {
   lastIdentifyAction.value = null
 
     emit('item-added')
-    isOpen.value = false
-    resetDialog()
+  } catch (error) {
+    console.error('Error saving item:', error)
   } finally {
-    isSaving.value = false
+    isOpen.value = false
+    name.value = ''
+    description.value = ''
+    previewText.value = ''
   }
 }
 

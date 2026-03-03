@@ -3,9 +3,8 @@ import { ref, unref } from 'vue'
 import apiClient from 'src/utils/apiClient'
 import { useAuthStore } from './auth.store'
 
-const authStore = useAuthStore()
 const DOMAIN = process.env.DOMAIN
-const API_BASE = `https://api.boxbuddy.io/boxes/`
+const API_BASE = 'https://api.boxbuddy.io/boxes/'
 
 export const useBoxesStore = defineStore('boxes', () => {
   const boxes = ref([])
@@ -48,15 +47,14 @@ export const useBoxesStore = defineStore('boxes', () => {
   }
 
   const createBox = async (boxData) => {
+    const authStore = useAuthStore()
     const user = authStore.user
+
     if (!user) throw new Error('User not authenticated')
 
-    // Get display_name from user metadata
     const display_name = user.user_metadata?.display_name
-    console.log('display_name', display_name)
     if (!display_name) throw new Error('User display name not found')
 
-    // First, insert the box into Supabase to get its ID
     let boxRes
     try {
       boxRes = await apiClient.post(
@@ -76,10 +74,7 @@ export const useBoxesStore = defineStore('boxes', () => {
 
     const box = boxRes.data
     const boxId = box.id
-    console.log('boxId', boxId)
-
     const boxUrl = `https://${DOMAIN}/boxes/${display_name}/${box.name}`
-    console.log('boxUrl', boxUrl)
 
     try {
       await apiClient.patch(

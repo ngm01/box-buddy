@@ -94,8 +94,16 @@ export const useAuthStore = defineStore('auth', () => {
   const signup = async ({ email, password }) => {
     email = typeof email === 'string' ? email : unref(email)
     password = typeof password === 'string' ? password : unref(password)
+    display_name = typeof display_name === 'string' ? display_name : unref(display_name)
+    redirect_to = typeof redirect_to === 'string' ? redirect_to : unref(redirect_to)
+
     try {
-      await axios.post(`${API_BASE}/signup`, { email, password })
+      await axios.post(`${API_BASE}/signup`, {
+        email,
+        password,
+        display_name,
+        redirect_to,
+      })
       return true
     } catch (err) {
       console.error('Signup failed:', err)
