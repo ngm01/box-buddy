@@ -38,11 +38,16 @@
           <div v-if="!isEditing">
             <div class="q-mb-md">
               <div class="text-h6">{{ box.name }}</div>
-              <div class="">{{ box.description }}</div>
+              <div>{{ box.description }}</div>
               <div class="text-caption">Access Level: {{ box.access_level }}</div>
+              <div class="text-caption">Tags: {{ formatTags(box.tags) }}</div>
+              <div class="text-caption">Created: {{ formatDate(box.created_at || box.created_time) }}</div>
+              <div class="text-caption">
+                Last updated: {{ formatDate(box.updated_at || box.date_updated) }}
+              </div>
             </div>
             <div class="q-pa-md q-gutter-sm">
-              <q-btn color="primary" icon="edit" label="Edit Details" @click="isEditing = true" />
+              <q-btn color="primary" icon="edit" label="Edit Details" @click="startEditingBox" />
               <q-btn
                 label="View QR Code"
                 icon="qr_code"
@@ -54,34 +59,48 @@
           </div>
 
           <q-form v-else @submit.prevent="updateBox" class="q-gutter-md">
-            <q-input v-model="box.name" label="Name" filled />
-
-            <q-input v-model="box.description" label="Description" type="textarea" filled />
-
+            <q-input v-model="boxDraft.name" label="Name" filled />
+            <q-input v-model="boxDraft.description" label="Description" type="textarea" filled />
             <q-select
-              v-model="box.access_level"
+              v-model="boxDraft.access_level"
               :options="['private', 'public']"
               label="Access Level"
               filled
             />
+            <q-input
+              v-model="boxDraft.tags"
+              label="Tags (comma-separated)"
+              filled
+              hint="Example: fragile, winter, donation"
+            />
 
             <q-btn type="submit" color="primary" label="Save Changes" class="q-mt-md" />
-            <q-btn color="grey-7" label="Cancel" @click="isEditing = false" class="q-mt-md" />
+            <q-btn color="grey-7" label="Cancel" @click="cancelEdit" class="q-mt-md" />
           </q-form>
-          <div>
-            <p>Created: {{ new Date(box.created_time).toLocaleString() }}</p>
-            <p>Last updated: {{ new Date(box.date_updated).toLocaleString() }}</p>
-          </div>
         </div>
       </div>
-      <AddItemDialog :boxId="box.id" ref="addItemDialog" @item-added="fetchBoxDetails" />
+
+      <AddItemDialog :boxId="box.id" ref="addItemDialog" @item-added="fetchItems" />
       <QRCodeDialog ref="qrCodeDialog" :box="box" />
 
       <div class="q-mt-lg">
         <h3 class="text-h6">Items</h3>
 
+        <q-input
+          v-model="itemSearch"
+          filled
+          clearable
+          label="Search items"
+          class="q-mb-md"
+          @update:model-value="handleItemSearch"
+        >
+          <template #prepend>
+            <q-icon name="search" />
+          </template>
+        </q-input>
+
         <div v-if="items.length === 0" class="text-center q-pa-md">
-          <p class="text-grey-7">No items in this box yet. Add some items to get started!</p>
+          <p class="text-grey-7">No items found for this box.</p>
         </div>
 
         <q-list v-else bordered separator>
@@ -89,6 +108,13 @@
             <q-item-section>
               <q-item-label>{{ item.name }}</q-item-label>
               <q-item-label caption>{{ item.description }}</q-item-label>
+              <q-item-label caption>Tags: {{ formatTags(item.tags) }}</q-item-label>
+              <q-item-label caption>
+                Created: {{ formatDate(item.created_at || item.created_time) }}
+              </q-item-label>
+              <q-item-label caption>
+                Updated: {{ formatDate(item.updated_at || item.date_updated) }}
+              </q-item-label>
             </q-item-section>
             <q-item-section side>
               <div class="row justify-right">
@@ -111,59 +137,95 @@
                 />
               </div>
             </q-item-section>
-
-            <q-dialog v-model="editItemDialog" persistent>
-              <q-card class="q-pa-md" style="min-width: 400px; max-width: 80vw">
-                <q-card-section class="row items-center">
-                  <q-avatar icon="edit" color="primary" text-color="white" />
-                  <span class="q-ml-sm">Edit Item</span>
-                </q-card-section>
-                <q-card-section>
-                  <q-input v-model="item.name" label="Name" filled />
-                  <q-input v-model="item.description" label="Description" type="textarea" filled />
-                </q-card-section>
-                <q-card-actions align="right">
-                  <q-btn flat label="Cancel" color="primary" v-close-popup />
-                  <q-btn flat label="Save" color="primary" @click="saveItem" v-close-popup />
-                </q-card-actions>
-              </q-card>
-            </q-dialog>
-
-            <q-dialog v-model="deleteDialog" persistent>
-              <q-card>
-                <q-card-section class="row items-center">
-                  <q-avatar icon="warning" color="negative" text-color="white" />
-                  <span class="q-ml-sm">Are you sure you want to delete this item?</span>
-                </q-card-section>
-
-                <q-card-actions align="right">
-                  <q-btn flat label="Cancel" color="primary" v-close-popup />
-                  <q-btn flat label="Delete" color="negative" @click="deleteItem" v-close-popup />
-                </q-card-actions>
-              </q-card>
-            </q-dialog>
           </q-item>
         </q-list>
       </div>
+
+      <q-dialog v-model="editItemDialog" persistent>
+        <q-card class="q-pa-md" style="min-width: 400px; max-width: 80vw">
+          <q-card-section class="row items-center">
+            <q-avatar icon="edit" color="primary" text-color="white" />
+            <span class="q-ml-sm">Edit Item</span>
+          </q-card-section>
+          <q-card-section>
+            <q-input v-model="itemToEdit.name" label="Name" filled />
+            <q-input v-model="itemToEdit.description" label="Description" type="textarea" filled />
+            <q-input
+              v-model="itemToEdit.tags"
+              label="Tags (comma-separated)"
+              filled
+              hint="Example: kitchen, fragile"
+            />
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn flat label="Cancel" color="primary" v-close-popup />
+            <q-btn flat label="Save" color="primary" @click="saveItem" />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
+
+      <q-dialog v-model="deleteDialog" persistent>
+        <q-card>
+          <q-card-section class="row items-center">
+            <q-avatar icon="warning" color="negative" text-color="white" />
+            <span class="q-ml-sm">Are you sure you want to delete this item?</span>
+          </q-card-section>
+
+          <q-card-actions align="right">
+            <q-btn flat label="Cancel" color="primary" v-close-popup />
+            <q-btn flat label="Delete" color="negative" @click="deleteItem" />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </div>
   </q-page>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+//import { useBoxesStore } from 'src/stores/boxes.store'
+import { useRoute, useRouter } from 'vue-router'
+//import { storeToRefs } from 'pinia'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
-import { supabase } from '../utils/supabase'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
+import { useBoxesStore } from 'src/stores/boxes.store'
+import { useItemsStore } from 'src/stores/items.store'
 
 const route = useRoute()
 const box = ref(null)
+const boxDraft = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const addItemDialog = ref(null)
 const qrCodeDialog = ref(null)
 const items = ref([])
 const isEditing = ref(false)
-const isLoading = ref(true)
-const pageState = ref('ready')
+const itemSearch = ref('')
+let itemSearchDebounce = null
+
+const editItemDialog = ref(false)
+const itemToEdit = ref({ id: null, name: '', description: '', tags: '' })
+const deleteDialog = ref(false)
+const itemToDelete = ref(null)
+
+const normalizeTags = (tags) => {
+  if (Array.isArray(tags)) return tags
+  if (typeof tags === 'string') {
+    return tags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+const formatTags = (tags) => {
+  const values = normalizeTags(tags)
+  return values.length ? values.join(', ') : 'None'
+}
+
+const formatDate = (value) => {
+  if (!value) return '—'
+  return new Date(value).toLocaleString()
+}
 
 const showAddItemDialog = () => {
   addItemDialog.value.isOpen = true
@@ -173,35 +235,14 @@ const showQRCodeDialog = () => {
   qrCodeDialog.value.isOpen = true
 }
 
-const updateBox = async () => {
-  const { error } = await supabase
-    .from('boxes')
-    .update({
-      name: box.value.name,
-      description: box.value.description,
-      access_level: box.value.access_level,
-    })
-    .eq('id', box.value.id)
-
-  if (error) {
-    console.error('Error updating box:', error)
+const startEditingBox = () => {
+  boxDraft.value = {
+    name: box.value.name,
+    description: box.value.description,
+    access_level: box.value.access_level,
+    tags: formatTags(box.value.tags) === 'None' ? '' : formatTags(box.value.tags),
   }
-}
-
-const resolveAccessStatus = async (display_name, box_name) => {
-  const { data, error } = await supabase.rpc('get_box_access_status', {
-    p_display_name: display_name,
-    p_box_name: box_name,
-  })
-
-  if (error || !data?.length) {
-    return { statusCode: 500 }
-  }
-
-  return {
-    statusCode: data[0].status_code,
-    boxId: data[0].box_id,
-  }
+  isEditing.value = true
 }
 
 const fetchBoxDetails = async () => {
@@ -209,36 +250,39 @@ const fetchBoxDetails = async () => {
   pageState.value = 'ready'
 
   try {
-    const { display_name, box_name } = route.params
-    const accessCheck = await resolveAccessStatus(display_name, box_name)
+    const { id, display_name, box_name } = route.params
 
-    if (accessCheck.statusCode === 403) {
-      pageState.value = 'forbidden'
+    let boxQuery = supabase.from('boxes').select('*')
+
+    if (id) {
+      boxQuery = boxQuery.eq('id', id)
+    } else if (display_name && box_name) {
+      boxQuery = boxQuery.eq('display_name', display_name).eq('name', box_name)
+    } else {
+      console.error('Invalid box route params')
       return
     }
 
-    if (accessCheck.statusCode === 404) {
-      pageState.value = 'not_found'
-      return
+    const { data: boxData, error: boxError } = await boxQuery.single()
+
+const fetchItems = async () => {
+  if (!box.value?.id) return
+  items.value = await itemsStore.fetchItemsByBox(box.value.id, itemSearch.value)
+}
+
+const handleItemSearch = () => {
+  if (itemSearchDebounce) {
+    clearTimeout(itemSearchDebounce)
+  }
+
+  itemSearchDebounce = setTimeout(async () => {
+    await fetchItems()
+  }, 250)
+}
+
+    if (!id && display_name && box_name) {
+      await router.replace(`/boxes/${encodeURIComponent(boxData.id)}`)
     }
-
-    if (accessCheck.statusCode !== 200 || !accessCheck.boxId) {
-      pageState.value = 'error'
-      return
-    }
-
-    const { data: boxData, error: boxError } = await supabase
-      .from('boxes')
-      .select('*')
-      .eq('id', accessCheck.boxId)
-      .single()
-
-    if (boxError || !boxData) {
-      pageState.value = 'error'
-      return
-    }
-
-    box.value = boxData
 
     const { data: itemsData, error: itemsError } = await supabase
       .from('items')
@@ -250,39 +294,43 @@ const fetchBoxDetails = async () => {
       return
     }
 
-    items.value = itemsData || []
+  try {
+    await boxesStore.updateBox(box.value.id, {
+      name: boxDraft.value.name,
+      description: boxDraft.value.description,
+      access_level: boxDraft.value.access_level,
+      tags: boxDraft.value.tags,
+    })
+    await fetchBoxDetails()
+    isEditing.value = false
   } catch (error) {
-    console.error('Error fetching box details:', error)
-    pageState.value = 'error'
-  } finally {
-    isLoading.value = false
+    console.error('Error updating box:', error)
   }
 }
 
-const editItemDialog = ref(false)
-const itemToEdit = ref(null)
-
 const openEditItemDialog = (item) => {
-  itemToEdit.value = item
+  itemToEdit.value = {
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    tags: formatTags(item.tags) === 'None' ? '' : formatTags(item.tags),
+  }
   editItemDialog.value = true
 }
 
 const saveItem = async () => {
   try {
-    const { error } = await supabase.from('items').update(itemToEdit.value).eq('id', itemToEdit.value.id)
-    if (!error) {
-      fetchBoxDetails()
-      editItemDialog.value = false
-      itemToEdit.value = null
-    }
+    await itemsStore.updateItem(itemToEdit.value.id, {
+      name: itemToEdit.value.name,
+      description: itemToEdit.value.description,
+      tags: itemToEdit.value.tags,
+    })
+    await fetchItems()
+    editItemDialog.value = false
   } catch (error) {
     console.error('Error saving item:', error)
   }
 }
-
-const deleteDialog = ref(false)
-
-const itemToDelete = ref(null)
 
 const confirmItemDelete = (itemId) => {
   itemToDelete.value = itemId
@@ -291,17 +339,17 @@ const confirmItemDelete = (itemId) => {
 
 const deleteItem = async () => {
   try {
-    const { error } = await supabase.from('items').delete().eq('id', itemToDelete.value)
-    if (!error) {
-      fetchBoxDetails()
-    }
+    await itemsStore.deleteItem(itemToDelete.value)
+    deleteDialog.value = false
+    await fetchItems()
   } catch (error) {
     console.error('Error deleting item:', error)
   }
 }
 
 onMounted(async () => {
-  fetchBoxDetails()
+  await fetchBoxDetails()
+  await fetchItems()
 })
 </script>
 

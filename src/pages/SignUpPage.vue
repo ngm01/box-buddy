@@ -46,8 +46,9 @@
 
       <q-btn type="submit" color="primary" label="Sign Up" class="full-width" />
     </q-form>
-    <div class="q-mt-md text-center">
-      Already have an account? <router-link to="/login">Log in</router-link>
+    <div class="q-mt-md text-center">Already have an account? <router-link to="/login">Log in</router-link></div>
+    <div v-if="message" class="text-positive q-mt-md">
+      {{ message }}
     </div>
     <div v-if="error" class="text-negative q-mt-md">
       {{ error }}
@@ -57,61 +58,74 @@
 
 <script setup>
 import { ref } from 'vue'
-//import { useRouter } from 'vue-router'
-//import { useAuthStore } from 'src/stores/auth.store'
-import { supabase } from '../utils/supabase'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from 'src/stores/auth.store'
+import { useQuasar } from 'quasar'
 
-//const router = useRouter()
-//const authStore = useAuthStore()
+const router = useRouter()
+const authStore = useAuthStore()
+const $q = useQuasar()
 
 const displayName = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
+const message = ref('')
+
+const getSignupSuccessRedirectUrl = () => {
+  const baseUrl = process.env.APP_URL || window.location.origin
+  return new URL('/signup-success', baseUrl).toString()
+}
 
 const signUp = async () => {
+  $q.loading.show()
+
   try {
     error.value = ''
+    message.value = ''
 
-    // Check if display name is already taken
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('display_name')
-      .eq('display_name', displayName.value)
-      .single()
+    // Validate through a trusted database function so the client only handles UI state.
+    const { data: validation, error: validationError } = await supabase.rpc(
+      'validate_signup_display_name',
+      {
+        p_display_name: displayName.value,
+      },
+    )
 
-    if (existingUser) {
+    if (validationError) {
+      throw new Error('Unable to validate your display name right now. Please try again.')
+    }
+
+    if (!validation?.ok) {
+      error.value = validation?.message || 'Display name validation failed'
+      return
+    }
+
+    const result = await authStore.signup({
+      displayName: displayName.value,
+      email: email.value,
+      password: password.value,
+      redirectTo: `${window.location.origin}/signup-success`,
+    })
+
+    if (!result.ok) {
+      error.value = result.message
+      return
+    }
+
+    if (!authData?.user) {
+      throw new Error('Sign up did not return a user. Please try again.')
+    }
+  } catch (err) {
+    const message = err?.message || ''
+
+    if (message.includes('display_name_taken')) {
       error.value = 'Display name is already taken'
       return
     }
 
-    // Create the user account
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: email.value,
-      password: password.value,
-      options: {
-        data: {
-          display_name: displayName.value,
-        },
-      },
-      redirectTo: 'http://localhost:9000/signup-success',
-    })
-
-    if (authError) throw authError
-
-    // Create profile record
-    const { error: profileError } = await supabase.from('profiles').insert([
-      {
-        id: authData.user.id,
-        display_name: displayName.value,
-        email: email.value,
-      },
-    ])
-
-    if (profileError) throw profileError
-  } catch (err) {
-    error.value = err.message
+    error.value = message || 'Unable to sign up right now. Please try again.'
   }
 }
 </script>

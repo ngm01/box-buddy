@@ -1,23 +1,46 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import axios from 'axios'
+import { ref, unref } from 'vue'
+import apiClient from 'src/utils/apiClient'
 import { useAuthStore } from './auth.store'
+import { getQrBaseUrlOrThrow } from 'src/config/app.config'
 
 const authStore = useAuthStore()
-const DOMAIN = process.env.DOMAIN
+const DOMAIN = process.env.DOMAIN || 'boxbuddy.io'
 const API_BASE = `https://api.boxbuddy.io/boxes/`
 
 export const useBoxesStore = defineStore('boxes', () => {
   const boxes = ref([])
 
+  const normalizeTags = (tags) => {
+    if (Array.isArray(tags)) {
+      return tags.map((tag) => String(tag).trim()).filter(Boolean)
+    }
+
+    if (typeof tags === 'string') {
+      return tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+    }
+
+    return []
+  }
+
   const authHeader = () => ({
-    Authorization: `Bearer ${authStore.token || ''}`,
+    Authorization: `Bearer ${unref(authStore.token) || ''}`,
   })
 
-  const fetchBoxes = async () => {
+  const fetchBoxes = async (searchTerm = '') => {
     try {
-      console.log('auth header: ', authHeader())
-      const res = await axios.get(API_BASE, { headers: authHeader() })
+      const params = new URLSearchParams()
+      params.set('order', 'updated_at.desc.nullslast,created_at.desc.nullslast')
+
+      if (searchTerm?.trim()) {
+        const escaped = searchTerm.trim().replaceAll(',', '\\,')
+        params.set('or', `(name.ilike.*${escaped}*,description.ilike.*${escaped}*)`)
+      }
+
+      const res = await axios.get(`${API_BASE}?${params.toString()}`, { headers: authHeader() })
       boxes.value = res.data
     } catch (error) {
       console.error('Error fetching boxes:', error)
@@ -26,21 +49,21 @@ export const useBoxesStore = defineStore('boxes', () => {
   }
 
   const createBox = async (boxData) => {
+    const authStore = useAuthStore()
     const user = authStore.user
+
     if (!user) throw new Error('User not authenticated')
 
-    // Get display_name from user metadata
     const display_name = user.user_metadata?.display_name
-    console.log('display_name', display_name)
     if (!display_name) throw new Error('User display name not found')
 
-    // First, insert the box into Supabase to get its ID
     let boxRes
     try {
-      boxRes = await axios.post(
+      boxRes = await apiClient.post(
         API_BASE,
         {
           ...boxData,
+          tags: normalizeTags(boxData.tags),
           user_id: user.id,
           display_name,
         },
@@ -55,11 +78,12 @@ export const useBoxesStore = defineStore('boxes', () => {
     const boxId = box.id
     console.log('boxId', boxId)
 
-    const boxUrl = `https://${DOMAIN}/boxes/${display_name}/${box.name}`
+    const qrBaseUrl = getQrBaseUrlOrThrow()
+    const boxUrl = `${qrBaseUrl}/boxes/${display_name}/${box.name}`
     console.log('boxUrl', boxUrl)
 
     try {
-      await axios.patch(
+      await apiClient.patch(
         `${API_BASE}/?id=eq.${boxId}`,
         {
           qr_code_url: boxUrl,
@@ -75,7 +99,7 @@ export const useBoxesStore = defineStore('boxes', () => {
 
   const updateBox = async (id, boxData) => {
     try {
-      const res = await axios.patch(`${API_BASE}/?id=eq.${id}`, boxData, { headers: authHeader() })
+      const res = await apiClient.patch(`${API_BASE}/?id=eq.${id}`, boxData, { headers: authHeader() })
       return res.data
     } catch (error) {
       console.error('Error updating box:', error)
@@ -86,7 +110,7 @@ export const useBoxesStore = defineStore('boxes', () => {
   const deleteBox = async (id) => {
     try {
       // eslint-disable-next-line no-unused-vars
-      const res = await axios.delete(`${API_BASE}/?id=eq.${id}`, { headers: authHeader() })
+      const res = await apiClient.delete(`${API_BASE}/?id=eq.${id}`, { headers: authHeader() })
       boxes.value = boxes.value.filter((box) => box.id !== id)
     } catch (error) {
       console.error('Error deleting box:', error)
