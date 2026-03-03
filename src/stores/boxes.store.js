@@ -10,14 +10,36 @@ const API_BASE = `https://api.boxbuddy.io/boxes/`
 export const useBoxesStore = defineStore('boxes', () => {
   const boxes = ref([])
 
+  const normalizeTags = (tags) => {
+    if (Array.isArray(tags)) {
+      return tags.map((tag) => String(tag).trim()).filter(Boolean)
+    }
+
+    if (typeof tags === 'string') {
+      return tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+    }
+
+    return []
+  }
+
   const authHeader = () => ({
     Authorization: `Bearer ${authStore.token || ''}`,
   })
 
-  const fetchBoxes = async () => {
+  const fetchBoxes = async (searchTerm = '') => {
     try {
-      console.log('auth header: ', authHeader())
-      const res = await axios.get(API_BASE, { headers: authHeader() })
+      const params = new URLSearchParams()
+      params.set('order', 'updated_at.desc.nullslast,created_at.desc.nullslast')
+
+      if (searchTerm?.trim()) {
+        const escaped = searchTerm.trim().replaceAll(',', '\\,')
+        params.set('or', `(name.ilike.*${escaped}*,description.ilike.*${escaped}*)`)
+      }
+
+      const res = await axios.get(`${API_BASE}?${params.toString()}`, { headers: authHeader() })
       boxes.value = res.data
     } catch (error) {
       console.error('Error fetching boxes:', error)
@@ -41,6 +63,7 @@ export const useBoxesStore = defineStore('boxes', () => {
         API_BASE,
         {
           ...boxData,
+          tags: normalizeTags(boxData.tags),
           user_id: user.id,
           display_name,
         },
@@ -75,7 +98,14 @@ export const useBoxesStore = defineStore('boxes', () => {
 
   const updateBox = async (id, boxData) => {
     try {
-      const res = await axios.patch(`${API_BASE}/?id=eq.${id}`, boxData, { headers: authHeader() })
+      const res = await axios.patch(
+        `${API_BASE}/?id=eq.${id}`,
+        {
+          ...boxData,
+          tags: normalizeTags(boxData.tags),
+        },
+        { headers: authHeader() },
+      )
       return res.data
     } catch (error) {
       console.error('Error updating box:', error)

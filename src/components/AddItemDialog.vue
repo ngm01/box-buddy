@@ -8,6 +8,12 @@
       <q-card-section>
         <q-input v-model="name" label="Item Name" outlined />
         <q-input v-model="description" label="Description" outlined type="textarea" />
+        <q-input
+          v-model="tags"
+          label="Tags (comma-separated)"
+          outlined
+          hint="Example: pantry, fragile"
+        />
       </q-card-section>
 
       <q-card-section class="row justify-center q-gutter-md">
@@ -32,9 +38,8 @@
 import { ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
-import { supabase } from '../utils/supabase'
-import { useBoxesStore } from 'src/stores/boxes.store'
-const boxesStore = useBoxesStore()
+import { useItemsStore } from 'src/stores/items.store'
+const itemsStore = useItemsStore()
 // Dialog visibility
 const isOpen = ref(false)
 const props = defineProps({
@@ -49,6 +54,7 @@ const emit = defineEmits(['item-added'])
 const name = ref('')
 const description = ref('')
 const previewText = ref('')
+const tags = ref('')
 const enableAI = ref(true) // V2/Paid Feature
 
 // Function to scan text via OCR
@@ -141,28 +147,24 @@ const identifyImage = async () => {
   alert('AI Recognition is a paid feature and coming soon!')
 }
 
-// Function to save item to Supabase
+// Function to save item through API
 const saveItem = async () => {
-  const { data: itemData, error } = await supabase
-    .from('items')
-    .insert([{ name: name.value, description: description.value, box_id: props.boxId }])
-    .select('id')
-  if (error) {
+  try {
+    await itemsStore.createItem({
+      name: name.value,
+      description: description.value,
+      tags: tags.value,
+      box_id: props.boxId,
+    })
+  } catch (error) {
     console.error('Error saving item:', error)
-  } else {
-    const itemId = itemData[0].id
-    const { data: boxData } = await supabase.from('boxes').select('*').eq('id', props.boxId)
-    if (boxData) {
-      await boxesStore.updateBox(props.boxId, {
-        ...boxData[0],
-        items: [...boxData[0].items, itemId],
-      })
-    }
   }
+
   // close dialog and reset form
   isOpen.value = false
   name.value = ''
   description.value = ''
+  tags.value = ''
   previewText.value = ''
 
   emit('item-added')
@@ -173,6 +175,7 @@ const cancel = () => {
   name.value = ''
   description.value = ''
   previewText.value = ''
+  tags.value = ''
 }
 
 // Expose `isOpen` to be controlled from the parent component
