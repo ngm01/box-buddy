@@ -11,9 +11,27 @@
       </q-card-section>
 
       <q-card-section class="row justify-center q-gutter-md">
-        <q-btn @click="scanText" icon="camera_alt" label="Scan Text" />
-        <q-btn @click="scanBarcode" icon="qr_code_scanner" label="Scan Barcode" />
-        <q-btn v-if="enableAI" @click="identifyImage" icon="image_search" label="AI Identify" />
+        <q-btn @click="scanText" :disable="isIdentifyInFlight" icon="camera_alt" label="Scan Text" />
+        <q-btn @click="scanBarcode" :disable="isIdentifyInFlight" icon="qr_code_scanner" label="Scan Barcode" />
+        <q-btn
+          v-if="enableAI"
+          @click="identifyImage"
+          :disable="isIdentifyInFlight"
+          :loading="isIdentifyInFlight"
+          icon="image_search"
+          label="AI Identify"
+        />
+      </q-card-section>
+
+      <q-card-section v-if="identifyStatusMessage">
+        <q-banner class="bg-blue-2 q-pa-sm">{{ identifyStatusMessage }}</q-banner>
+      </q-card-section>
+
+      <q-card-section v-if="identifyError">
+        <q-banner class="bg-red-2 q-pa-sm row items-center justify-between">
+          <span>{{ identifyError }}</span>
+          <q-btn flat dense color="negative" label="Retry" @click="retryIdentify" :disable="isIdentifyInFlight" />
+        </q-banner>
       </q-card-section>
 
       <q-card-section v-if="previewText">
@@ -22,19 +40,24 @@
 
       <q-card-actions align="right">
         <q-btn flat label="Cancel" @click="cancel" v-close-popup />
-        <q-btn color="primary" @click="saveItem" label="Save" />
+        <q-btn color="primary" @click="saveItem" label="Save" :disable="isIdentifyInFlight" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
 import { supabase } from '../utils/supabase'
 import { useBoxesStore } from 'src/stores/boxes.store'
+import { useAuthStore } from 'src/stores/auth.store'
+
 const boxesStore = useBoxesStore()
+const authStore = useAuthStore()
+const API_BASE = 'https://api.boxbuddy.io'
+
 // Dialog visibility
 const isOpen = ref(false)
 const props = defineProps({
@@ -51,53 +74,123 @@ const description = ref('')
 const previewText = ref('')
 const enableAI = ref(true) // V2/Paid Feature
 
-// Function to scan text via OCR
-// REST API docs: https://cloud.google.com/vision/docs/reference/rest
-// https://cloud.google.com/vision/docs/reference/rest/v1/images/annotate
-const scanText = async () => {
+const isUploading = ref(false)
+const isIdentifying = ref(false)
+const identifyError = ref('')
+const lastIdentifyAction = ref(null)
+
+const isIdentifyInFlight = computed(() => isUploading.value || isIdentifying.value)
+
+const identifyStatusMessage = computed(() => {
+  if (isUploading.value) return 'Uploading image...'
+  if (isIdentifying.value) return 'Identifying image...'
+  return ''
+})
+
+const runImageIdentifyWorkflow = async ({ mode }) => {
+  identifyError.value = ''
+  lastIdentifyAction.value = mode
+
+  const imageData = await captureImage()
+  if (!imageData) {
+    identifyError.value = 'Unable to capture image. Please try again.'
+    return
+  }
+
+  const token = authStore.token
+  if (!token) {
+    identifyError.value = 'You must be signed in to identify an image.'
+    return
+  }
+
+  const imageBytes = base64ToBytes(imageData)
+
   try {
-    const imageData = await captureImage()
-    if (!imageData) {
-      throw new Error('Failed to capture image')
+    isUploading.value = true
+    const presignResponse = await fetch(`${API_BASE}/uploads/presign`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (!presignResponse.ok) {
+      throw new Error(`Upload prepare failed with status ${presignResponse.status}`)
     }
 
-    const apiKey = process.env.GOOGLE_VISION_API_KEY
-    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+    const presignPayload = await presignResponse.json()
+    const uploadUrl = presignPayload?.uploadUrl
+    const key = presignPayload?.key
+
+    if (!uploadUrl || !key) {
+      throw new Error('Upload prepare response missing upload URL or key')
+    }
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'image/jpeg',
+      },
+      body: imageBytes,
+    })
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Image upload failed with status ${uploadResponse.status}`)
+    }
+
+    isUploading.value = false
+    isIdentifying.value = true
+
+    const identifyResponse = await fetch(`${API_BASE}/identify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: imageData.split(',')[1], // Remove the data:image/jpeg;base64, prefix
-            },
-            features: [
-              {
-                type: 'DOCUMENT_TEXT_DETECTION',
-              },
-            ],
-          },
-        ],
-      }),
+      body: JSON.stringify({ key }),
     })
 
-    const json = await response.json()
-    const text = json.responses?.[0]?.fullTextAnnotation?.pages?.[0]?.blocks || []
+    if (!identifyResponse.ok) {
+      throw new Error(`Identify failed with status ${identifyResponse.status}`)
+    }
 
-    if (text) {
-      console.log('Detected text:', text)
-      previewText.value = text
-      description.value = text
+    const identifyPayload = await identifyResponse.json()
+    const detectedText =
+      identifyPayload?.text || identifyPayload?.description || identifyPayload?.result || ''
+
+    if (detectedText) {
+      previewText.value = detectedText
+      description.value = detectedText
+      if (mode === 'identify') {
+        name.value = detectedText
+      }
     } else {
-      console.error('No text detected in the image')
       previewText.value = 'No text detected'
     }
   } catch (error) {
-    console.error('Error scanning text:', error)
-    previewText.value = 'Error scanning text'
+    console.error('Image identify workflow failed:', error)
+    identifyError.value =
+      'Image processing failed. Check your connection and try again. Your photo was not saved.'
+  } finally {
+    isUploading.value = false
+    isIdentifying.value = false
   }
+}
+
+// Function to scan text via server-side OCR workflow
+const scanText = async () => {
+  if (isIdentifyInFlight.value) return
+  await runImageIdentifyWorkflow({ mode: 'scan' })
+}
+
+const identifyImage = async () => {
+  if (isIdentifyInFlight.value) return
+  await runImageIdentifyWorkflow({ mode: 'identify' })
+}
+
+const retryIdentify = async () => {
+  if (!lastIdentifyAction.value || isIdentifyInFlight.value) return
+  await runImageIdentifyWorkflow({ mode: lastIdentifyAction.value })
 }
 
 const captureImage = async () => {
@@ -111,13 +204,25 @@ const captureImage = async () => {
 
     if (image.base64String) {
       return `data:image/jpeg;base64,${image.base64String}`
-    } else {
-      throw new Error('No image captured')
     }
+
+    throw new Error('No image captured')
   } catch (error) {
     console.error('Error capturing image:', error)
     return null
   }
+}
+
+const base64ToBytes = (dataUrl) => {
+  const base64 = dataUrl.split(',')[1] || ''
+  const binaryString = atob(base64)
+  const bytes = new Uint8Array(binaryString.length)
+
+  for (let i = 0; i < binaryString.length; i += 1) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+
+  return bytes
 }
 
 // Function to scan barcode using Capacitor
@@ -134,11 +239,6 @@ const scanBarcode = async () => {
   } catch (error) {
     console.error('Barcode Scan Error:', error)
   }
-}
-
-// Function to use AI image recognition (V2 Feature)
-const identifyImage = async () => {
-  alert('AI Recognition is a paid feature and coming soon!')
 }
 
 // Function to save item to Supabase
@@ -164,15 +264,18 @@ const saveItem = async () => {
   name.value = ''
   description.value = ''
   previewText.value = ''
+  identifyError.value = ''
+  lastIdentifyAction.value = null
 
   emit('item-added')
 }
 
 const cancel = () => {
-  // isOpen.value = false
   name.value = ''
   description.value = ''
   previewText.value = ''
+  identifyError.value = ''
+  lastIdentifyAction.value = null
 }
 
 // Expose `isOpen` to be controlled from the parent component
