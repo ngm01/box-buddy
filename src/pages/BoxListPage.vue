@@ -1,11 +1,31 @@
 <template>
   <q-page class="q-pa-md">
+    <q-input
+      v-model="boxSearch"
+      filled
+      clearable
+      label="Search boxes"
+      class="q-mb-md"
+      @update:model-value="handleBoxSearch"
+    >
+      <template #prepend>
+        <q-icon name="search" />
+      </template>
+    </q-input>
+
     <!-- List of boxes -->
     <q-list v-if="boxes.length" bordered separator>
       <q-item v-for="box in boxes" :key="box.id" clickable>
         <q-item-section @click="goToBoxDetail(box.display_name, box.name)">
           <q-item-label>{{ box.name }}</q-item-label>
           <q-item-label caption>{{ box.description }}</q-item-label>
+          <q-item-label caption>Tags: {{ formatTags(box.tags) }}</q-item-label>
+          <q-item-label caption>
+            Created: {{ formatDate(box.created_at || box.created_time) }}
+          </q-item-label>
+          <q-item-label caption>
+            Updated: {{ formatDate(box.updated_at || box.date_updated) }}
+          </q-item-label>
         </q-item-section>
         <q-item-section side>
           <q-icon @click="confirmDelete(box.id)" clickable name="delete" color="red" />
@@ -35,6 +55,12 @@
           <q-card-section>
             <q-input v-model="box.name" label="Box Name" filled />
             <q-input v-model="box.description" label="Description" filled type="textarea" />
+            <q-input
+              v-model="box.tags"
+              label="Tags (comma-separated)"
+              filled
+              hint="Example: seasonal, donate, tools"
+            />
             <div class="row items-center q-mt-sm">
               <q-select
                 v-model="box.access_level"
@@ -110,13 +136,36 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const boxesStore = useBoxesStore()
 const { boxes } = storeToRefs(boxesStore)
-const box = ref({ name: '', description: '', access_level: 'private' })
+const box = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const selectedBox = ref(null)
+const boxSearch = ref('')
 const showCreateBoxModal = ref(false)
 const showBoxCreatedModal = ref(false)
 const showDeleteModal = ref(false)
 const qrCode = ref('')
 const errorMessage = ref('')
+
+let searchDebounce = null
+
+const handleBoxSearch = () => {
+  if (searchDebounce) {
+    clearTimeout(searchDebounce)
+  }
+
+  searchDebounce = setTimeout(async () => {
+    await boxesStore.fetchBoxes(boxSearch.value)
+  }, 250)
+}
+
+const formatTags = (tags) => {
+  if (!Array.isArray(tags) || tags.length === 0) return 'None'
+  return tags.join(', ')
+}
+
+const formatDate = (value) => {
+  if (!value) return '—'
+  return new Date(value).toLocaleString()
+}
 
 const handleCreateBox = async () => {
   try {
@@ -129,8 +178,8 @@ const handleCreateBox = async () => {
   } finally {
     qrCode.value = ''
     showCreateBoxModal.value = false
-    box.value = { name: '', description: '', access_level: 'private' }
-    await boxesStore.fetchBoxes()
+    box.value = { name: '', description: '', access_level: 'private', tags: '' }
+    await boxesStore.fetchBoxes(boxSearch.value)
   }
 }
 
@@ -154,12 +203,12 @@ const deleteBox = async () => {
     errorMessage.value = error.message
   } finally {
     selectedBox.value = null
-    await boxesStore.fetchBoxes()
+    await boxesStore.fetchBoxes(boxSearch.value)
   }
 }
 
 onMounted(async () => {
-  await boxesStore.fetchBoxes()
+  await boxesStore.fetchBoxes(boxSearch.value)
 })
 </script>
 

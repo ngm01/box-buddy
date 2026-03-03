@@ -12,16 +12,13 @@
 
       <q-card-section class="q-gutter-md">
         <q-input v-model="name" label="Item Name" outlined />
-        <q-input v-model="description" label="Description" outlined type="textarea" autogrow />
-
-        <div class="row justify-end">
-          <q-btn color="primary" outline label="Add Manual Item to Queue" @click="queueManualItem" />
-        </div>
-
-        <q-banner v-if="queuedManualItems.length" rounded class="bg-blue-1 text-blue-10">
-          {{ queuedManualItems.length }} manual item{{ queuedManualItems.length === 1 ? '' : 's' }} queued
-          for save.
-        </q-banner>
+        <q-input v-model="description" label="Description" outlined type="textarea" />
+        <q-input
+          v-model="tags"
+          label="Tags (comma-separated)"
+          outlined
+          hint="Example: pantry, fragile"
+        />
       </q-card-section>
 
       <q-card-section class="row justify-center q-gutter-md">
@@ -94,14 +91,9 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
-import { supabase } from '../utils/supabase'
-import { useBoxesStore } from 'src/stores/boxes.store'
-import { useAuthStore } from 'src/stores/auth.store'
-
-const boxesStore = useBoxesStore()
-const authStore = useAuthStore()
-const API_BASE = 'https://api.boxbuddy.io'
-
+import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
+import { useItemsStore } from 'src/stores/items.store'
+const itemsStore = useItemsStore()
 // Dialog visibility
 const isOpen = ref(false)
 
@@ -116,38 +108,9 @@ const emit = defineEmits(['item-added'])
 
 const name = ref('')
 const description = ref('')
-const queuedManualItems = ref([])
-
-const isUploading = ref(false)
-const isIdentifying = ref(false)
-const identifyError = ref('')
-const lastIdentifyAction = ref(null)
-
-const isIdentifyInFlight = computed(() => isUploading.value || isIdentifying.value)
-
-const identifyStatusMessage = computed(() => {
-  if (isUploading.value) return 'Uploading image...'
-  if (isIdentifying.value) return 'Identifying image...'
-  return ''
-})
-
-const runImageIdentifyWorkflow = async ({ mode }) => {
-  identifyError.value = ''
-  lastIdentifyAction.value = mode
-
-  const imageData = await captureImage()
-  if (!imageData) {
-    identifyError.value = 'Unable to capture image. Please try again.'
-    return
-  }
-
-  const token = authStore.token
-  if (!token) {
-    identifyError.value = 'You must be signed in to identify an image.'
-    return
-  }
-
-  const imageBytes = base64ToBytes(imageData)
+const previewText = ref('')
+const tags = ref('')
+const enableAI = ref(true) // V2/Paid Feature
 
   try {
     isUploading.value = true
@@ -321,29 +284,29 @@ const scanBarcode = async () => {
   }
 }
 
-// Function to save item to Supabase
-const saveItem = async () => {
-  const { data: itemData, error } = await supabase
-    .from('items')
-    .insert([{ name: name.value, description: description.value, box_id: props.boxId }])
-    .select('id')
-  if (error) {
-    console.error('Error saving item:', error)
-  } else {
-    const itemId = itemData[0].id
-    const { data: boxData } = await supabase.from('boxes').select('*').eq('id', props.boxId)
+// Function to use AI image recognition (V2 Feature)
+const identifyImage = async () => {
+  alert('AI Recognition is a paid feature and coming soon!')
+}
 
-    if (boxData && boxData[0]) {
-      await boxesStore.updateBox(props.boxId, {
-        ...boxData[0],
-        items: [...(boxData[0].items || []), ...itemData.map((item) => item.id)],
-      })
-    }
+// Function to save item through API
+const saveItem = async () => {
+  try {
+    await itemsStore.createItem({
+      name: name.value,
+      description: description.value,
+      tags: tags.value,
+      box_id: props.boxId,
+    })
+  } catch (error) {
+    console.error('Error saving item:', error)
   }
+
   // close dialog and reset form
   isOpen.value = false
   name.value = ''
   description.value = ''
+  tags.value = ''
   previewText.value = ''
   identifyError.value = ''
   lastIdentifyAction.value = null
@@ -360,8 +323,7 @@ const cancel = () => {
   name.value = ''
   description.value = ''
   previewText.value = ''
-  identifyError.value = ''
-  lastIdentifyAction.value = null
+  tags.value = ''
 }
 
 defineExpose({ isOpen })
