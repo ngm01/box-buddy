@@ -1,7 +1,35 @@
 <template>
   <q-page>
-    <div v-if="!box" class="q-pa-md">
+    <div v-if="isLoading" class="q-pa-md">
       <p>Loading...</p>
+    </div>
+
+    <div v-else-if="pageState === 'forbidden'" class="q-pa-md">
+      <q-banner rounded class="bg-orange-1 text-orange-10">
+        <template #avatar>
+          <q-icon name="lock" />
+        </template>
+        You scanned a valid QR code, but you do not have access to this box. Ask the owner to grant
+        you access or make the box public.
+      </q-banner>
+    </div>
+
+    <div v-else-if="pageState === 'not_found'" class="q-pa-md">
+      <q-banner rounded class="bg-grey-2 text-grey-9">
+        <template #avatar>
+          <q-icon name="search_off" />
+        </template>
+        This box could not be found. The link may be incorrect or the box was removed.
+      </q-banner>
+    </div>
+
+    <div v-else-if="!box" class="q-pa-md">
+      <q-banner rounded class="bg-red-1 text-red-10">
+        <template #avatar>
+          <q-icon name="error" />
+        </template>
+        We could not load this box right now. Please try again.
+      </q-banner>
     </div>
 
     <div v-else>
@@ -55,7 +83,7 @@
       <AddItemDialog :boxId="box.id" ref="addItemDialog" @item-added="fetchItems" />
       <QRCodeDialog ref="qrCodeDialog" :box="box" />
 
-      <div class="q-mt-lg q-px-md">
+      <div class="q-mt-lg">
         <h3 class="text-h6">Items</h3>
 
         <q-input
@@ -164,9 +192,6 @@ import { useBoxesStore } from 'src/stores/boxes.store'
 import { useItemsStore } from 'src/stores/items.store'
 
 const route = useRoute()
-const router = useRouter()
-//const boxesStore = useBoxesStore()
-//const { boxes } = storeToRefs(boxesStore)
 const box = ref(null)
 const boxDraft = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const addItemDialog = ref(null)
@@ -221,6 +246,9 @@ const startEditingBox = () => {
 }
 
 const fetchBoxDetails = async () => {
+  isLoading.value = true
+  pageState.value = 'ready'
+
   try {
     const { id, display_name, box_name } = route.params
 
@@ -256,8 +284,15 @@ const handleItemSearch = () => {
       await router.replace(`/boxes/${encodeURIComponent(boxData.id)}`)
     }
 
-    // Fetch items for the box using the box's ID
-    const { data: itemsData } = await supabase.from('items').select('*').eq('box_id', box.value.id)
+    const { data: itemsData, error: itemsError } = await supabase
+      .from('items')
+      .select('*')
+      .eq('box_id', box.value.id)
+
+    if (itemsError) {
+      pageState.value = 'error'
+      return
+    }
 
   try {
     await boxesStore.updateBox(box.value.id, {
