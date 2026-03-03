@@ -1,105 +1,204 @@
 <template>
-  <q-dialog v-model="isOpen">
-    <q-card class="q-pa-md">
+  <q-dialog v-model="isOpen" @hide="resetDialog">
+    <q-card class="q-pa-md add-item-card">
       <q-card-section>
-        <div class="text-h6">Add Item</div>
+        <div class="text-h6">Add Items</div>
+        <div class="text-caption text-grey-7">
+          Add a single item manually, or use AI to identify multiple items from one photo.
+        </div>
       </q-card-section>
 
-      <q-card-section>
+      <q-separator class="q-mb-md" />
+
+      <q-card-section class="q-gutter-md">
         <q-input v-model="name" label="Item Name" outlined />
         <q-input v-model="description" label="Description" outlined type="textarea" />
+        <q-input
+          v-model="tags"
+          label="Tags (comma-separated)"
+          outlined
+          hint="Example: pantry, fragile"
+        />
       </q-card-section>
 
       <q-card-section class="row justify-center q-gutter-md">
-        <q-btn @click="scanText" icon="camera_alt" label="Scan Text" />
-        <q-btn @click="scanBarcode" icon="qr_code_scanner" label="Scan Barcode" />
-        <q-btn v-if="enableAI" @click="identifyImage" icon="image_search" label="AI Identify" />
+        <q-btn @click="scanText" :disable="isIdentifyInFlight" icon="camera_alt" label="Scan Text" />
+        <q-btn @click="scanBarcode" :disable="isIdentifyInFlight" icon="qr_code_scanner" label="Scan Barcode" />
+        <q-btn
+          v-if="enableAI"
+          @click="identifyImage"
+          :disable="isIdentifyInFlight"
+          :loading="isIdentifyInFlight"
+          icon="image_search"
+          label="AI Identify"
+        />
       </q-card-section>
 
-      <q-card-section v-if="previewText">
-        <q-banner class="bg-green-2 q-pa-sm">Scanned Data: {{ previewText }}</q-banner>
+      <q-card-section v-if="identifyStatusMessage">
+        <q-banner class="bg-blue-2 q-pa-sm">{{ identifyStatusMessage }}</q-banner>
+      </q-card-section>
+
+      <q-card-section v-if="identifyError">
+        <q-banner class="bg-red-2 q-pa-sm row items-center justify-between">
+          <span>{{ identifyError }}</span>
+          <q-btn flat dense color="negative" label="Retry" @click="retryIdentify" :disable="isIdentifyInFlight" />
+        </q-banner>
+      </q-card-section>
+
+      <q-card-section v-if="provisionalItems.length">
+        <div class="text-subtitle1 q-mb-sm">Review AI-identified items</div>
+        <q-list bordered separator>
+          <q-item v-for="item in provisionalItems" :key="item.localId">
+            <q-item-section avatar>
+              <q-checkbox v-model="item.approved" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>{{ item.name }}</q-item-label>
+              <q-item-label caption>
+                {{ item.description || 'No description provided by AI' }}
+              </q-item-label>
+              <q-item-label caption v-if="item.boundingBox">
+                Region: {{ formatBoundingBox(item.boundingBox) }}
+              </q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-card-section>
+
+      <q-card-section v-if="provisionalItems.length">
+        <div class="text-subtitle1 q-mb-sm">AI Identified Items</div>
+        <q-list bordered separator>
+          <q-item v-for="(item, index) in provisionalItems" :key="`${item.name}-${index}`">
+            <q-item-section>
+              <q-item-label>{{ item.name }}</q-item-label>
+              <q-item-label caption>{{ item.description || 'No notes' }}</q-item-label>
+              <q-item-label caption>
+                Center: {{ item.coordinates?.x ?? 'n/a' }}, {{ item.coordinates?.y ?? 'n/a' }}
+              </q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
       </q-card-section>
 
       <q-card-actions align="right">
         <q-btn flat label="Cancel" @click="cancel" v-close-popup />
-        <q-btn color="primary" @click="saveItem" label="Save" />
+        <q-btn color="primary" @click="saveItem" label="Save" :disable="isIdentifyInFlight" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import axios from 'axios'
-import { useQuasar } from 'quasar'
+import { computed, ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
-import { supabase } from '../utils/supabase'
-import { useBoxesStore } from 'src/stores/boxes.store'
-import { useSubscription } from 'src/composables/useSubscription'
-import { normalizeApiError } from 'src/utils/apiErrors'
+import { useItemsStore } from 'src/stores/items.store'
 
-const boxesStore = useBoxesStore()
-const $q = useQuasar()
-
+const itemsStore = useItemsStore()
+// Dialog visibility
 const isOpen = ref(false)
+
 const props = defineProps({
   boxId: {
     type: String,
     required: true,
   },
 })
+
 const emit = defineEmits(['item-added'])
 
 const name = ref('')
 const description = ref('')
 const previewText = ref('')
-const enableAI = ref(true)
+const tags = ref('')
+const enableAI = ref(true) // V2/Paid Feature
 
-const { requireEntitlement, openPaywallModal, setUsageCounts, usage } = useSubscription()
-
-const scanText = async () => {
   try {
-    const imageData = await captureImage()
-    if (!imageData) {
-      throw new Error('Failed to capture image')
+    isUploading.value = true
+    const presignResponse = await fetch(`${API_BASE}/uploads/presign`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (!presignResponse.ok) {
+      throw new Error(`Upload prepare failed with status ${presignResponse.status}`)
     }
 
-    const apiKey = process.env.GOOGLE_VISION_API_KEY
-    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+    const presignPayload = await presignResponse.json()
+    const uploadUrl = presignPayload?.uploadUrl
+    const key = presignPayload?.key
+
+    if (!uploadUrl || !key) {
+      throw new Error('Upload prepare response missing upload URL or key')
+    }
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'image/jpeg',
+      },
+      body: imageBytes,
+    })
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Image upload failed with status ${uploadResponse.status}`)
+    }
+
+    isUploading.value = false
+    isIdentifying.value = true
+
+    const identifyResponse = await fetch(`${API_BASE}/identify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: imageData.split(',')[1],
-            },
-            features: [
-              {
-                type: 'DOCUMENT_TEXT_DETECTION',
-              },
-            ],
-          },
-        ],
-      }),
+      body: JSON.stringify({ key }),
     })
 
-    const json = await response.json()
-    const text = json.responses?.[0]?.fullTextAnnotation?.pages?.[0]?.blocks || []
+    if (!identifyResponse.ok) {
+      throw new Error(`Identify failed with status ${identifyResponse.status}`)
+    }
 
-    if (text) {
-      previewText.value = text
-      description.value = text
+    const identifyPayload = await identifyResponse.json()
+    const detectedText =
+      identifyPayload?.text || identifyPayload?.description || identifyPayload?.result || ''
+
+    if (detectedText) {
+      previewText.value = detectedText
+      description.value = detectedText
+      if (mode === 'identify') {
+        name.value = detectedText
+      }
     } else {
       previewText.value = 'No text detected'
     }
   } catch (error) {
-    console.error('Error scanning text:', error)
-    previewText.value = 'Error scanning text'
+    console.error('Image identify workflow failed:', error)
+    identifyError.value =
+      'Image processing failed. Check your connection and try again. Your photo was not saved.'
+  } finally {
+    isUploading.value = false
+    isIdentifying.value = false
   }
+}
+
+// Function to scan text via server-side OCR workflow
+const scanText = async () => {
+  if (isIdentifyInFlight.value) return
+  await runImageIdentifyWorkflow({ mode: 'scan' })
+}
+
+const identifyImage = async () => {
+  if (isIdentifyInFlight.value) return
+  await runImageIdentifyWorkflow({ mode: 'identify' })
+}
+
+const retryIdentify = async () => {
+  if (!lastIdentifyAction.value || isIdentifyInFlight.value) return
+  await runImageIdentifyWorkflow({ mode: lastIdentifyAction.value })
 }
 
 const captureImage = async () => {
@@ -118,22 +217,70 @@ const captureImage = async () => {
     throw new Error('No image captured')
   } catch (error) {
     console.error('Error capturing image:', error)
-    return null
+    identifyError.value = 'Could not capture image. You can upload a photo instead.'
   }
+}
+
+const triggerUpload = () => {
+  uploadInput.value?.click()
+}
+
+const onFileSelected = (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    aiImageDataUrl.value = typeof reader.result === 'string' ? reader.result : ''
+    identifyError.value = ''
+  }
+  reader.onerror = () => {
+    identifyError.value = 'Could not read the selected file.'
+  }
+  reader.readAsDataURL(file)
+}
+
+const base64ToBytes = (dataUrl) => {
+  const base64 = dataUrl.split(',')[1] || ''
+  const binaryString = atob(base64)
+  const bytes = new Uint8Array(binaryString.length)
+
+  for (let i = 0; i < binaryString.length; i += 1) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+
+  return bytes
 }
 
 const scanBarcode = async () => {
   try {
-    await CapacitorBarcodeScanner.checkPermission({ force: true })
-    CapacitorBarcodeScanner.hideBackground()
-    const result = await CapacitorBarcodeScanner.startScan()
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: aiImageDataUrl.value,
+        instructions: aiInstructions.value,
+        boxId: props.boxId,
+      }),
+    })
 
-    if (result.hasContent) {
-      name.value = result.content
-      previewText.value = `Barcode: ${result.content}`
+    if (!response.ok) {
+      throw new Error(`AI request failed: ${response.status}`)
+    }
+
+    const data = await response.json()
+    provisionalItems.value = normalizeIdentifiedItems(data)
+
+    if (!provisionalItems.value.length) {
+      identifyError.value = 'AI did not return identifiable items for this photo.'
     }
   } catch (error) {
-    console.error('Barcode Scan Error:', error)
+    console.error('AI identify error:', error)
+    identifyError.value = 'Could not identify items from the photo. Please try again.'
+  } finally {
+    isIdentifying.value = false
   }
 }
 
@@ -170,50 +317,56 @@ const identifyImage = async () => {
   }
 }
 
+// Function to save item through API gateway
 const saveItem = async () => {
-  if (!requireEntitlement({ feature: 'items', reason: 'You reached the item limit for your plan.' })) {
-    return
-  }
-
-  const { data: itemData, error } = await supabase
-    .from('items')
-    .insert([{ name: name.value, description: description.value, box_id: props.boxId }])
-    .select('id')
-
-  if (error) {
+  try {
+    await itemsStore.createItem({
+      name: name.value,
+      description: description.value,
+      tags: tags.value,
+      box_id: props.boxId,
+    })
+  } catch (error) {
     console.error('Error saving item:', error)
-  } else {
-    const itemId = itemData[0].id
-    const { data: boxData } = await supabase.from('boxes').select('*').eq('id', props.boxId)
-    if (boxData) {
-      await boxesStore.updateBox(props.boxId, {
-        ...boxData[0],
-        items: [...boxData[0].items, itemId],
-      })
-    }
-    setUsageCounts({ itemCountTotal: usage.value.item_count_total + 1 })
   }
 
+  // close dialog and reset form
   isOpen.value = false
   name.value = ''
   description.value = ''
+  tags.value = ''
   previewText.value = ''
+  identifyError.value = ''
+  lastIdentifyAction.value = null
 
-  emit('item-added')
+    emit('item-added')
+  } catch (error) {
+    console.error('Error saving item:', error)
+  } finally {
+    isOpen.value = false
+    name.value = ''
+    description.value = ''
+    previewText.value = ''
+  }
 }
 
 const cancel = () => {
   name.value = ''
   description.value = ''
   previewText.value = ''
+  tags.value = ''
 }
 
 defineExpose({ isOpen })
 </script>
 
 <style scoped>
-.q-card {
-  width: 400px;
-  max-width: 90vw;
+.add-item-card {
+  width: 680px;
+  max-width: 95vw;
+}
+
+.ai-preview {
+  max-height: 220px;
 }
 </style>

@@ -29,6 +29,15 @@ const routes = [
     component: () => import('pages/SignUpSuccessPage.vue'),
   },
 
+  {
+    path: '/forgot-password',
+    component: () => import('pages/ForgotPasswordPage.vue'),
+  },
+  {
+    path: '/reset-password',
+    component: () => import('pages/ResetPasswordPage.vue'),
+  },
+
   // Always leave this as last one,
   // but you can also remove it
   {
