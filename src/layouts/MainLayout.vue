@@ -19,6 +19,8 @@
           icon="logout"
           title="Logout"
           aria-label="Logout"
+          :disable="isLoggingOut"
+          :loading="isLoggingOut"
           @click="handleLogout"
         />
       </q-toolbar>
@@ -56,13 +58,23 @@ const authStore = useAuthStore()
 const router = useRouter()
 
 const leftDrawerOpen = ref(false)
+const isLoggingOut = ref(false)
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
 }
 
-function handleLogout() {
-  authStore.logout()
-  router.push('/login')
+async function handleLogout() {
+  if (isLoggingOut.value) return
+
+  isLoggingOut.value = true
+  try {
+    await authStore.logout()
+  } catch (error) {
+    console.warn('Logout request failed; continuing sign-out flow.', error)
+  } finally {
+    isLoggingOut.value = false
+    await router.push('/login')
+  }
 }
 </script>
