@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.boxbuddy.app"],
+        "components": [
+          {
+            "/": "/boxes/*/*",
+            "comment": "Route deep-links to box detail pages."
+          }
+        ]
+      }
+    ]
+  }
+}
