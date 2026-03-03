@@ -1,37 +1,95 @@
 <template>
-  <q-dialog v-model="isOpen">
-    <q-card class="q-pa-md">
+  <q-dialog v-model="isOpen" @hide="resetDialog">
+    <q-card class="q-pa-md add-item-card">
       <q-card-section>
-        <div class="text-h6">Add Item</div>
+        <div class="text-h6">Add Items</div>
+        <div class="text-caption text-grey-7">
+          Add a single item manually, or use AI to identify multiple items from one photo.
+        </div>
       </q-card-section>
 
-      <q-card-section>
+      <q-separator class="q-mb-md" />
+
+      <q-card-section class="q-gutter-md">
         <q-input v-model="name" label="Item Name" outlined />
-        <q-input v-model="description" label="Description" outlined type="textarea" />
+        <q-input v-model="description" label="Description" outlined type="textarea" autogrow />
+
+        <div class="row justify-end">
+          <q-btn color="primary" outline label="Add Manual Item to Queue" @click="queueManualItem" />
+        </div>
+
+        <q-banner v-if="queuedManualItems.length" rounded class="bg-blue-1 text-blue-10">
+          {{ queuedManualItems.length }} manual item{{ queuedManualItems.length === 1 ? '' : 's' }} queued
+          for save.
+        </q-banner>
       </q-card-section>
 
-      <q-card-section class="row justify-center q-gutter-md">
-        <q-btn @click="scanText" icon="camera_alt" label="Scan Text" />
-        <q-btn @click="scanBarcode" icon="qr_code_scanner" label="Scan Barcode" />
-        <q-btn v-if="enableAI" @click="captureAiPhoto" icon="photo_camera" label="Take Photo" />
-        <q-btn v-if="enableAI" @click="identifyImage" icon="image_search" label="AI Identify" />
-      </q-card-section>
+      <q-separator class="q-my-md" />
 
-      <q-card-section v-if="enableAI">
-        <q-file
+      <q-card-section>
+        <div class="row items-center justify-between q-mb-sm">
+          <div class="text-subtitle1">AI Identify</div>
+          <q-btn
+            color="secondary"
+            icon="image_search"
+            label="AI Identify"
+            :loading="isIdentifying"
+            :disable="isIdentifying || !aiImageDataUrl"
+            @click="identifyImage"
+          />
+        </div>
+
+        <div class="row q-gutter-sm q-mb-md">
+          <q-btn outline icon="photo_camera" label="Take Photo" @click="captureImage" />
+          <q-btn outline icon="upload_file" label="Upload Photo" @click="triggerUpload" />
+          <input
+            ref="uploadInput"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="onFileSelected"
+          />
+        </div>
+
+        <q-input
+          v-model="aiInstructions"
           outlined
-          accept="image/*"
-          label="Upload image for AI identify"
-          @update:model-value="onImageSelected"
+          autogrow
+          type="textarea"
+          label="Additional instructions for AI (optional)"
+          hint="Example: Ignore packaging and only list individual tools"
         />
+
+        <q-img
+          v-if="aiImageDataUrl"
+          :src="aiImageDataUrl"
+          fit="contain"
+          class="q-mt-md rounded-borders ai-preview"
+        />
+
+        <q-banner v-if="identifyError" class="bg-red-1 text-red-9 q-mt-md" rounded>
+          {{ identifyError }}
+        </q-banner>
       </q-card-section>
 
-      <q-card-section v-if="aiImageDataUrl">
-        <q-img :src="aiImageDataUrl" style="max-height: 200px" contain />
-      </q-card-section>
-
-      <q-card-section v-if="previewText">
-        <q-banner class="bg-green-2 q-pa-sm">Scanned Data: {{ previewText }}</q-banner>
+      <q-card-section v-if="provisionalItems.length">
+        <div class="text-subtitle1 q-mb-sm">Review AI-identified items</div>
+        <q-list bordered separator>
+          <q-item v-for="item in provisionalItems" :key="item.localId">
+            <q-item-section avatar>
+              <q-checkbox v-model="item.approved" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>{{ item.name }}</q-item-label>
+              <q-item-label caption>
+                {{ item.description || 'No description provided by AI' }}
+              </q-item-label>
+              <q-item-label caption v-if="item.boundingBox">
+                Region: {{ formatBoundingBox(item.boundingBox) }}
+              </q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
       </q-card-section>
 
       <q-card-section v-if="provisionalItems.length">
@@ -51,83 +109,67 @@
 
       <q-card-actions align="right">
         <q-btn flat label="Cancel" @click="cancel" v-close-popup />
-        <q-btn color="primary" @click="saveItem" label="Save" />
+        <q-btn
+          color="primary"
+          :disable="!hasAnythingToSave"
+          :loading="isSaving"
+          @click="saveItems"
+          label="Save Approved Items"
+        />
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
-import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
-import { useAuthStore } from 'src/stores/auth.store'
+import { supabase } from '../utils/supabase'
+import { useBoxesStore } from 'src/stores/boxes.store'
 
-const authStore = useAuthStore()
-const apiBase = (process.env.API_BASE || 'https://api.boxbuddy.io').replace(/\/$/, '')
-const presignEndpoint = `${apiBase}/uploads/presign`
-const identifyEndpoint = `${apiBase}/identify`
-const itemsEndpoint = `${apiBase}/items`
-
+const boxesStore = useBoxesStore()
 const isOpen = ref(false)
+
 const props = defineProps({
   boxId: {
     type: String,
     required: true,
   },
 })
+
 const emit = defineEmits(['item-added'])
 
 const name = ref('')
 const description = ref('')
-const previewText = ref('')
-const enableAI = ref(true)
+const queuedManualItems = ref([])
+
+const uploadInput = ref(null)
 const aiImageDataUrl = ref('')
-const selectedFile = ref(null)
+const aiInstructions = ref('')
+const isIdentifying = ref(false)
+const identifyError = ref('')
+
 const provisionalItems = ref([])
+const isSaving = ref(false)
 
-const scanText = async () => {
-  try {
-    const imageData = await captureImage()
-    if (!imageData) {
-      throw new Error('Failed to capture image')
-    }
+const hasApprovedAiItems = computed(() => provisionalItems.value.some((item) => item.approved))
+const hasAnythingToSave = computed(
+  () => queuedManualItems.value.length > 0 || hasApprovedAiItems.value,
+)
 
-    const apiKey = process.env.GOOGLE_VISION_API_KEY
-    const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: imageData.split(',')[1],
-            },
-            features: [
-              {
-                type: 'DOCUMENT_TEXT_DETECTION',
-              },
-            ],
-          },
-        ],
-      }),
-    })
+const queueManualItem = () => {
+  const trimmedName = name.value.trim()
+  const trimmedDescription = description.value.trim()
 
-    const json = await response.json()
-    const text = json.responses?.[0]?.fullTextAnnotation?.pages?.[0]?.blocks || []
+  if (!trimmedName) return
 
-    if (text) {
-      previewText.value = text
-      description.value = text
-    } else {
-      previewText.value = 'No text detected'
-    }
-  } catch (error) {
-    console.error('Error scanning text:', error)
-    previewText.value = 'Error scanning text'
-  }
+  queuedManualItems.value.push({
+    name: trimmedName,
+    description: trimmedDescription,
+  })
+
+  name.value = ''
+  description.value = ''
 }
 
 const captureImage = async () => {
@@ -139,223 +181,189 @@ const captureImage = async () => {
       source: CameraSource.Camera,
     })
 
-    if (image.base64String) {
-      return `data:image/jpeg;base64,${image.base64String}`
-    }
+    if (!image.base64String) throw new Error('No image captured')
 
-    throw new Error('No image captured')
+    aiImageDataUrl.value = `data:image/jpeg;base64,${image.base64String}`
+    identifyError.value = ''
   } catch (error) {
     console.error('Error capturing image:', error)
-    return null
+    identifyError.value = 'Could not capture image. You can upload a photo instead.'
   }
 }
 
-const onImageSelected = async (file) => {
-  if (!file) {
-    selectedFile.value = null
-    aiImageDataUrl.value = ''
-    return
-  }
-
-  selectedFile.value = file
-  aiImageDataUrl.value = await fileToDataUrl(file)
+const triggerUpload = () => {
+  uploadInput.value?.click()
 }
 
-const fileToDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
+const onFileSelected = (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
 
-const base64ToBlob = async (base64String, mimeType = 'image/jpeg') => {
-  const binary = atob(base64String)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i)
+  const reader = new FileReader()
+  reader.onload = () => {
+    aiImageDataUrl.value = typeof reader.result === 'string' ? reader.result : ''
+    identifyError.value = ''
   }
-  return new Blob([bytes], { type: mimeType })
-}
-
-const captureAiPhoto = async () => {
-  try {
-    const photo = await Camera.getPhoto({
-      quality: 90,
-      allowEditing: false,
-      resultType: CameraResultType.Base64,
-      source: CameraSource.Camera,
-    })
-
-    if (!photo.base64String) {
-      throw new Error('No image data returned from camera')
-    }
-
-    const mimeType = photo.format ? `image/${photo.format}` : 'image/jpeg'
-    const blob = await base64ToBlob(photo.base64String, mimeType)
-    const fileName = `capture-${Date.now()}.${photo.format || 'jpg'}`
-    selectedFile.value = new File([blob], fileName, { type: mimeType })
-    aiImageDataUrl.value = `data:${mimeType};base64,${photo.base64String}`
-  } catch (error) {
-    console.error('AI photo capture failed:', error)
-    previewText.value = 'Unable to capture photo'
+  reader.onerror = () => {
+    identifyError.value = 'Could not read the selected file.'
   }
-}
-
-const scanBarcode = async () => {
-  try {
-    await CapacitorBarcodeScanner.checkPermission({ force: true })
-    CapacitorBarcodeScanner.hideBackground()
-    const result = await CapacitorBarcodeScanner.startScan()
-
-    if (result.hasContent) {
-      name.value = result.content
-      previewText.value = `Barcode: ${result.content}`
-    }
-  } catch (error) {
-    console.error('Barcode Scan Error:', error)
-  }
-}
-
-const normalizeIdentifiedItems = (payload) => {
-  const objects = Array.isArray(payload?.objects) ? payload.objects : []
-  return objects.map((object) => ({
-    name: object?.label || 'Unlabeled item',
-    description: object?.notes || '',
-    coordinates: object?.coordinates || null,
-    confidence: object?.confidence_0_1,
-  }))
+  reader.readAsDataURL(file)
 }
 
 const identifyImage = async () => {
-  if (!selectedFile.value) {
-    previewText.value = 'Please upload or capture an image first'
+  if (!aiImageDataUrl.value) return
+
+  const apiUrl = process.env.AWS_OPENAI_PROXY_URL || process.env.AI_IDENTIFY_PROXY_URL
+
+  if (!apiUrl) {
+    identifyError.value = 'AI endpoint is not configured. Set AWS_OPENAI_PROXY_URL.'
     return
   }
 
-  if (!authStore.token) {
-    previewText.value = 'You must be signed in to use AI identify'
-    return
-  }
+  identifyError.value = ''
+  isIdentifying.value = true
 
   try {
-    previewText.value = 'Uploading image for identification...'
-
-    const presignResponse = await fetch(presignEndpoint, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
       },
       body: JSON.stringify({
-        contentType: selectedFile.value.type || 'application/octet-stream',
-        originalName: selectedFile.value.name || `upload-${Date.now()}`,
-      }),
-    })
-
-    if (!presignResponse.ok) {
-      throw new Error(`Presign failed (${presignResponse.status})`)
-    }
-
-    const { uploadUrl, key } = await presignResponse.json()
-    if (!uploadUrl || !key) {
-      throw new Error('Presign response missing uploadUrl/key')
-    }
-
-    const uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': selectedFile.value.type || 'application/octet-stream',
-      },
-      body: selectedFile.value,
-    })
-
-    if (!uploadResponse.ok) {
-      throw new Error(`S3 upload failed (${uploadResponse.status})`)
-    }
-
-    const identifyResponse = await fetch(identifyEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
-      body: JSON.stringify({ key }),
-    })
-
-    if (!identifyResponse.ok) {
-      throw new Error(`Identify failed (${identifyResponse.status})`)
-    }
-
-    const identifyPayload = await identifyResponse.json()
-    provisionalItems.value = normalizeIdentifiedItems(identifyPayload)
-
-    if (provisionalItems.value.length > 0) {
-      name.value = provisionalItems.value[0].name || name.value
-      description.value = provisionalItems.value[0].description || description.value
-    }
-
-    previewText.value = `Identified ${provisionalItems.value.length} object(s)`
-  } catch (error) {
-    console.error('AI identify error:', error)
-    previewText.value = 'AI identify failed'
-  }
-}
-
-const saveItem = async () => {
-  if (!authStore.token) {
-    previewText.value = 'You must be signed in to save items'
-    return
-  }
-
-  try {
-    const response = await fetch(itemsEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
-      body: JSON.stringify({
-        name: name.value,
-        description: description.value,
-        box_id: props.boxId,
+        image: aiImageDataUrl.value,
+        instructions: aiInstructions.value,
+        boxId: props.boxId,
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`Failed to save item (${response.status})`)
+      throw new Error(`AI request failed: ${response.status}`)
     }
 
-    isOpen.value = false
-    name.value = ''
-    description.value = ''
-    previewText.value = ''
-    aiImageDataUrl.value = ''
-    selectedFile.value = null
-    provisionalItems.value = []
+    const data = await response.json()
+    provisionalItems.value = normalizeIdentifiedItems(data)
+
+    if (!provisionalItems.value.length) {
+      identifyError.value = 'AI did not return identifiable items for this photo.'
+    }
+  } catch (error) {
+    console.error('AI identify error:', error)
+    identifyError.value = 'Could not identify items from the photo. Please try again.'
+  } finally {
+    isIdentifying.value = false
+  }
+}
+
+const normalizeIdentifiedItems = (payload) => {
+  const candidates =
+    payload?.items || payload?.identifiedItems || payload?.results || payload?.data?.items || []
+
+  return candidates
+    .map((item, idx) => {
+      if (typeof item === 'string') {
+        return {
+          localId: `${item}-${idx}`,
+          name: item,
+          description: '',
+          boundingBox: null,
+          approved: true,
+        }
+      }
+
+      const resolvedName = item.name || item.label || item.item || `Identified item ${idx + 1}`
+      return {
+        localId: `${resolvedName}-${idx}`,
+        name: resolvedName,
+        description: item.description || '',
+        boundingBox: item.boundingBox || item.bbox || item.coordinates || null,
+        approved: true,
+      }
+    })
+    .filter((item) => item.name)
+}
+
+const formatBoundingBox = (bbox) => {
+  if (Array.isArray(bbox)) return bbox.join(', ')
+  if (typeof bbox === 'object') {
+    return Object.entries(bbox)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(', ')
+  }
+  return String(bbox)
+}
+
+const saveItems = async () => {
+  if (!hasAnythingToSave.value) return
+
+  isSaving.value = true
+
+  try {
+    const approvedAiItems = provisionalItems.value
+      .filter((item) => item.approved)
+      .map((item) => ({
+        name: item.name,
+        description: item.description,
+      }))
+
+    const itemsToInsert = [...queuedManualItems.value, ...approvedAiItems].map((item) => ({
+      name: item.name,
+      description: item.description,
+      box_id: props.boxId,
+    }))
+
+    const { data: itemData, error } = await supabase.from('items').insert(itemsToInsert).select('id')
+
+    if (error) {
+      console.error('Error saving items:', error)
+      return
+    }
+
+    const { data: boxData } = await supabase.from('boxes').select('*').eq('id', props.boxId)
+
+    if (boxData && boxData[0]) {
+      await boxesStore.updateBox(props.boxId, {
+        ...boxData[0],
+        items: [...(boxData[0].items || []), ...itemData.map((item) => item.id)],
+      })
+    }
 
     emit('item-added')
-  } catch (error) {
-    console.error('Error saving item:', error)
-    previewText.value = 'Failed to save item'
+    isOpen.value = false
+    resetDialog()
+  } finally {
+    isSaving.value = false
   }
 }
 
 const cancel = () => {
+  resetDialog()
+}
+
+const resetDialog = () => {
   name.value = ''
   description.value = ''
-  previewText.value = ''
+  queuedManualItems.value = []
+
   aiImageDataUrl.value = ''
-  selectedFile.value = null
+  aiInstructions.value = ''
   provisionalItems.value = []
+  identifyError.value = ''
+
+  if (uploadInput.value) {
+    uploadInput.value.value = ''
+  }
 }
 
 defineExpose({ isOpen })
 </script>
 
 <style scoped>
-.q-card {
-  width: 400px;
-  max-width: 90vw;
+.add-item-card {
+  width: 680px;
+  max-width: 95vw;
+}
+
+.ai-preview {
+  max-height: 220px;
 }
 </style>
