@@ -74,15 +74,20 @@ const signUp = async () => {
   try {
     error.value = ''
 
-    // Check if display name is already taken
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('display_name')
-      .eq('display_name', displayName.value)
-      .single()
+    // Validate through a trusted database function so the client only handles UI state.
+    const { data: validation, error: validationError } = await supabase.rpc(
+      'validate_signup_display_name',
+      {
+        p_display_name: displayName.value,
+      },
+    )
 
-    if (existingUser) {
-      error.value = 'Display name is already taken'
+    if (validationError) {
+      throw new Error('Unable to validate your display name right now. Please try again.')
+    }
+
+    if (!validation?.ok) {
+      error.value = validation?.message || 'Display name validation failed'
       return
     }
 
@@ -100,18 +105,18 @@ const signUp = async () => {
 
     if (authError) throw authError
 
-    // Create profile record
-    const { error: profileError } = await supabase.from('profiles').insert([
-      {
-        id: authData.user.id,
-        display_name: displayName.value,
-        email: email.value,
-      },
-    ])
-
-    if (profileError) throw profileError
+    if (!authData?.user) {
+      throw new Error('Sign up did not return a user. Please try again.')
+    }
   } catch (err) {
-    error.value = err.message
+    const message = err?.message || ''
+
+    if (message.includes('display_name_taken')) {
+      error.value = 'Display name is already taken'
+      return
+    }
+
+    error.value = message || 'Unable to sign up right now. Please try again.'
   }
 }
 </script>
