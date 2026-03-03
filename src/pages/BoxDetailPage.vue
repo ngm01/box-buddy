@@ -1,11 +1,39 @@
 <template>
   <q-page>
-    <div v-if="!box">
+    <div v-if="isLoading" class="q-pa-md">
       <p>Loading...</p>
     </div>
+
+    <div v-else-if="pageState === 'forbidden'" class="q-pa-md">
+      <q-banner rounded class="bg-orange-1 text-orange-10">
+        <template #avatar>
+          <q-icon name="lock" />
+        </template>
+        You scanned a valid QR code, but you do not have access to this box. Ask the owner to grant
+        you access or make the box public.
+      </q-banner>
+    </div>
+
+    <div v-else-if="pageState === 'not_found'" class="q-pa-md">
+      <q-banner rounded class="bg-grey-2 text-grey-9">
+        <template #avatar>
+          <q-icon name="search_off" />
+        </template>
+        This box could not be found. The link may be incorrect or the box was removed.
+      </q-banner>
+    </div>
+
+    <div v-else-if="!box" class="q-pa-md">
+      <q-banner rounded class="bg-red-1 text-red-10">
+        <template #avatar>
+          <q-icon name="error" />
+        </template>
+        We could not load this box right now. Please try again.
+      </q-banner>
+    </div>
+
     <div v-else>
       <div class="row q-pa-md">
-        <!-- Box Details Column -->
         <div class="col-12 col-md-8">
           <div v-if="!isEditing">
             <div class="q-mb-md">
@@ -49,7 +77,6 @@
       <AddItemDialog :boxId="box.id" ref="addItemDialog" @item-added="fetchBoxDetails" />
       <QRCodeDialog ref="qrCodeDialog" :box="box" />
 
-      <!-- Items List Section -->
       <div class="q-mt-lg">
         <h3 class="text-h6">Items</h3>
 
@@ -124,21 +151,19 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-//import { useBoxesStore } from 'src/stores/boxes.store'
 import { useRoute } from 'vue-router'
-//import { storeToRefs } from 'pinia'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import { supabase } from '../utils/supabase'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 
 const route = useRoute()
-//const boxesStore = useBoxesStore()
-//const { boxes } = storeToRefs(boxesStore)
 const box = ref(null)
 const addItemDialog = ref(null)
 const qrCodeDialog = ref(null)
 const items = ref([])
 const isEditing = ref(false)
+const isLoading = ref(true)
+const pageState = ref('ready')
 
 const showAddItemDialog = () => {
   addItemDialog.value.isOpen = true
@@ -149,8 +174,7 @@ const showQRCodeDialog = () => {
 }
 
 const updateBox = async () => {
-  // eslint-disable-next-line no-unused-vars
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('boxes')
     .update({
       name: box.value.name,
@@ -161,41 +185,77 @@ const updateBox = async () => {
 
   if (error) {
     console.error('Error updating box:', error)
-  } else {
-    console.log('Box updated successfully')
+  }
+}
+
+const resolveAccessStatus = async (display_name, box_name) => {
+  const { data, error } = await supabase.rpc('get_box_access_status', {
+    p_display_name: display_name,
+    p_box_name: box_name,
+  })
+
+  if (error || !data?.length) {
+    return { statusCode: 500 }
+  }
+
+  return {
+    statusCode: data[0].status_code,
+    boxId: data[0].box_id,
   }
 }
 
 const fetchBoxDetails = async () => {
+  isLoading.value = true
+  pageState.value = 'ready'
+
   try {
     const { display_name, box_name } = route.params
+    const accessCheck = await resolveAccessStatus(display_name, box_name)
 
-    // Fetch the specific box directly without join
-    const { data: boxData, error: boxError } = await supabase
-      .from('boxes')
-      .select('*')
-      .eq('display_name', display_name)
-      .eq('name', box_name)
-      .single()
-
-    if (boxError) {
-      console.error('Box fetch error:', boxError)
+    if (accessCheck.statusCode === 403) {
+      pageState.value = 'forbidden'
       return
     }
 
-    if (!boxData) {
-      console.error('Box not found')
+    if (accessCheck.statusCode === 404) {
+      pageState.value = 'not_found'
+      return
+    }
+
+    if (accessCheck.statusCode !== 200 || !accessCheck.boxId) {
+      pageState.value = 'error'
+      return
+    }
+
+    const { data: boxData, error: boxError } = await supabase
+      .from('boxes')
+      .select('*')
+      .eq('id', accessCheck.boxId)
+      .single()
+
+    if (boxError || !boxData) {
+      pageState.value = 'error'
       return
     }
 
     box.value = boxData
 
-    // Fetch items for the box using the box's ID
-    const { data: itemsData } = await supabase.from('items').select('*').eq('box_id', box.value.id)
+    const { data: itemsData, error: itemsError } = await supabase
+      .from('items')
+      .select('*')
+      .eq('box_id', box.value.id)
+
+    if (itemsError) {
+      pageState.value = 'error'
+      return
+    }
 
     items.value = itemsData || []
   } catch (error) {
     console.error('Error fetching box details:', error)
+    pageState.value = 'error'
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -208,16 +268,9 @@ const openEditItemDialog = (item) => {
 }
 
 const saveItem = async () => {
-  console.log('Saving item:', itemToEdit.value)
   try {
-    const { error } = await supabase
-      .from('items')
-      .update(itemToEdit.value)
-      .eq('id', itemToEdit.value.id)
-    if (error) {
-      console.error('Error saving item:', error)
-    } else {
-      console.log('Item saved successfully')
+    const { error } = await supabase.from('items').update(itemToEdit.value).eq('id', itemToEdit.value.id)
+    if (!error) {
       fetchBoxDetails()
       editItemDialog.value = false
       itemToEdit.value = null
@@ -237,13 +290,9 @@ const confirmItemDelete = (itemId) => {
 }
 
 const deleteItem = async () => {
-  console.log('Deleting item:', itemToDelete.value)
   try {
     const { error } = await supabase.from('items').delete().eq('id', itemToDelete.value)
-    if (error) {
-      console.error('Error deleting item:', error)
-    } else {
-      console.log('Item deleted successfully')
+    if (!error) {
       fetchBoxDetails()
     }
   } catch (error) {
