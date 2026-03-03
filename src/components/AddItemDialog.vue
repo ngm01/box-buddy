@@ -24,51 +24,27 @@
         </q-banner>
       </q-card-section>
 
-      <q-separator class="q-my-md" />
-
-      <q-card-section>
-        <div class="row items-center justify-between q-mb-sm">
-          <div class="text-subtitle1">AI Identify</div>
-          <q-btn
-            color="secondary"
-            icon="image_search"
-            label="AI Identify"
-            :loading="isIdentifying"
-            :disable="isIdentifying || !aiImageDataUrl"
-            @click="identifyImage"
-          />
-        </div>
-
-        <div class="row q-gutter-sm q-mb-md">
-          <q-btn outline icon="photo_camera" label="Take Photo" @click="captureImage" />
-          <q-btn outline icon="upload_file" label="Upload Photo" @click="triggerUpload" />
-          <input
-            ref="uploadInput"
-            type="file"
-            accept="image/*"
-            class="hidden"
-            @change="onFileSelected"
-          />
-        </div>
-
-        <q-input
-          v-model="aiInstructions"
-          outlined
-          autogrow
-          type="textarea"
-          label="Additional instructions for AI (optional)"
-          hint="Example: Ignore packaging and only list individual tools"
+      <q-card-section class="row justify-center q-gutter-md">
+        <q-btn @click="scanText" :disable="isIdentifyInFlight" icon="camera_alt" label="Scan Text" />
+        <q-btn @click="scanBarcode" :disable="isIdentifyInFlight" icon="qr_code_scanner" label="Scan Barcode" />
+        <q-btn
+          v-if="enableAI"
+          @click="identifyImage"
+          :disable="isIdentifyInFlight"
+          :loading="isIdentifyInFlight"
+          icon="image_search"
+          label="AI Identify"
         />
+      </q-card-section>
 
-        <q-img
-          v-if="aiImageDataUrl"
-          :src="aiImageDataUrl"
-          fit="contain"
-          class="q-mt-md rounded-borders ai-preview"
-        />
+      <q-card-section v-if="identifyStatusMessage">
+        <q-banner class="bg-blue-2 q-pa-sm">{{ identifyStatusMessage }}</q-banner>
+      </q-card-section>
 
-        <q-banner v-if="identifyError" class="bg-red-1 text-red-9 q-mt-md" rounded>
-          {{ identifyError }}
+      <q-card-section v-if="identifyError">
+        <q-banner class="bg-red-2 q-pa-sm row items-center justify-between">
+          <span>{{ identifyError }}</span>
+          <q-btn flat dense color="negative" label="Retry" @click="retryIdentify" :disable="isIdentifyInFlight" />
         </q-banner>
       </q-card-section>
 
@@ -109,13 +85,7 @@
 
       <q-card-actions align="right">
         <q-btn flat label="Cancel" @click="cancel" v-close-popup />
-        <q-btn
-          color="primary"
-          :disable="!hasAnythingToSave"
-          :loading="isSaving"
-          @click="saveItems"
-          label="Save Approved Items"
-        />
+        <q-btn color="primary" @click="saveItem" label="Save" :disable="isIdentifyInFlight" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -126,8 +96,13 @@ import { computed, ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { supabase } from '../utils/supabase'
 import { useBoxesStore } from 'src/stores/boxes.store'
+import { useAuthStore } from 'src/stores/auth.store'
 
 const boxesStore = useBoxesStore()
+const authStore = useAuthStore()
+const API_BASE = 'https://api.boxbuddy.io'
+
+// Dialog visibility
 const isOpen = ref(false)
 
 const props = defineProps({
@@ -143,33 +118,123 @@ const name = ref('')
 const description = ref('')
 const queuedManualItems = ref([])
 
-const uploadInput = ref(null)
-const aiImageDataUrl = ref('')
-const aiInstructions = ref('')
+const isUploading = ref(false)
 const isIdentifying = ref(false)
 const identifyError = ref('')
+const lastIdentifyAction = ref(null)
 
-const provisionalItems = ref([])
-const isSaving = ref(false)
+const isIdentifyInFlight = computed(() => isUploading.value || isIdentifying.value)
 
-const hasApprovedAiItems = computed(() => provisionalItems.value.some((item) => item.approved))
-const hasAnythingToSave = computed(
-  () => queuedManualItems.value.length > 0 || hasApprovedAiItems.value,
-)
+const identifyStatusMessage = computed(() => {
+  if (isUploading.value) return 'Uploading image...'
+  if (isIdentifying.value) return 'Identifying image...'
+  return ''
+})
 
-const queueManualItem = () => {
-  const trimmedName = name.value.trim()
-  const trimmedDescription = description.value.trim()
+const runImageIdentifyWorkflow = async ({ mode }) => {
+  identifyError.value = ''
+  lastIdentifyAction.value = mode
 
-  if (!trimmedName) return
+  const imageData = await captureImage()
+  if (!imageData) {
+    identifyError.value = 'Unable to capture image. Please try again.'
+    return
+  }
 
-  queuedManualItems.value.push({
-    name: trimmedName,
-    description: trimmedDescription,
-  })
+  const token = authStore.token
+  if (!token) {
+    identifyError.value = 'You must be signed in to identify an image.'
+    return
+  }
 
-  name.value = ''
-  description.value = ''
+  const imageBytes = base64ToBytes(imageData)
+
+  try {
+    isUploading.value = true
+    const presignResponse = await fetch(`${API_BASE}/uploads/presign`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (!presignResponse.ok) {
+      throw new Error(`Upload prepare failed with status ${presignResponse.status}`)
+    }
+
+    const presignPayload = await presignResponse.json()
+    const uploadUrl = presignPayload?.uploadUrl
+    const key = presignPayload?.key
+
+    if (!uploadUrl || !key) {
+      throw new Error('Upload prepare response missing upload URL or key')
+    }
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'image/jpeg',
+      },
+      body: imageBytes,
+    })
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Image upload failed with status ${uploadResponse.status}`)
+    }
+
+    isUploading.value = false
+    isIdentifying.value = true
+
+    const identifyResponse = await fetch(`${API_BASE}/identify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ key }),
+    })
+
+    if (!identifyResponse.ok) {
+      throw new Error(`Identify failed with status ${identifyResponse.status}`)
+    }
+
+    const identifyPayload = await identifyResponse.json()
+    const detectedText =
+      identifyPayload?.text || identifyPayload?.description || identifyPayload?.result || ''
+
+    if (detectedText) {
+      previewText.value = detectedText
+      description.value = detectedText
+      if (mode === 'identify') {
+        name.value = detectedText
+      }
+    } else {
+      previewText.value = 'No text detected'
+    }
+  } catch (error) {
+    console.error('Image identify workflow failed:', error)
+    identifyError.value =
+      'Image processing failed. Check your connection and try again. Your photo was not saved.'
+  } finally {
+    isUploading.value = false
+    isIdentifying.value = false
+  }
+}
+
+// Function to scan text via server-side OCR workflow
+const scanText = async () => {
+  if (isIdentifyInFlight.value) return
+  await runImageIdentifyWorkflow({ mode: 'scan' })
+}
+
+const identifyImage = async () => {
+  if (isIdentifyInFlight.value) return
+  await runImageIdentifyWorkflow({ mode: 'identify' })
+}
+
+const retryIdentify = async () => {
+  if (!lastIdentifyAction.value || isIdentifyInFlight.value) return
+  await runImageIdentifyWorkflow({ mode: lastIdentifyAction.value })
 }
 
 const captureImage = async () => {
@@ -181,10 +246,11 @@ const captureImage = async () => {
       source: CameraSource.Camera,
     })
 
-    if (!image.base64String) throw new Error('No image captured')
+    if (image.base64String) {
+      return `data:image/jpeg;base64,${image.base64String}`
+    }
 
-    aiImageDataUrl.value = `data:image/jpeg;base64,${image.base64String}`
-    identifyError.value = ''
+    throw new Error('No image captured')
   } catch (error) {
     console.error('Error capturing image:', error)
     identifyError.value = 'Could not capture image. You can upload a photo instead.'
@@ -210,19 +276,20 @@ const onFileSelected = (event) => {
   reader.readAsDataURL(file)
 }
 
-const identifyImage = async () => {
-  if (!aiImageDataUrl.value) return
+const base64ToBytes = (dataUrl) => {
+  const base64 = dataUrl.split(',')[1] || ''
+  const binaryString = atob(base64)
+  const bytes = new Uint8Array(binaryString.length)
 
-  const apiUrl = process.env.AWS_OPENAI_PROXY_URL || process.env.AI_IDENTIFY_PROXY_URL
-
-  if (!apiUrl) {
-    identifyError.value = 'AI endpoint is not configured. Set AWS_OPENAI_PROXY_URL.'
-    return
+  for (let i = 0; i < binaryString.length; i += 1) {
+    bytes[i] = binaryString.charCodeAt(i)
   }
 
-  identifyError.value = ''
-  isIdentifying.value = true
+  return bytes
+}
 
+// Function to scan barcode using Capacitor
+const scanBarcode = async () => {
   try {
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -254,70 +321,16 @@ const identifyImage = async () => {
   }
 }
 
-const normalizeIdentifiedItems = (payload) => {
-  const candidates =
-    payload?.items || payload?.identifiedItems || payload?.results || payload?.data?.items || []
-
-  return candidates
-    .map((item, idx) => {
-      if (typeof item === 'string') {
-        return {
-          localId: `${item}-${idx}`,
-          name: item,
-          description: '',
-          boundingBox: null,
-          approved: true,
-        }
-      }
-
-      const resolvedName = item.name || item.label || item.item || `Identified item ${idx + 1}`
-      return {
-        localId: `${resolvedName}-${idx}`,
-        name: resolvedName,
-        description: item.description || '',
-        boundingBox: item.boundingBox || item.bbox || item.coordinates || null,
-        approved: true,
-      }
-    })
-    .filter((item) => item.name)
-}
-
-const formatBoundingBox = (bbox) => {
-  if (Array.isArray(bbox)) return bbox.join(', ')
-  if (typeof bbox === 'object') {
-    return Object.entries(bbox)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join(', ')
-  }
-  return String(bbox)
-}
-
-const saveItems = async () => {
-  if (!hasAnythingToSave.value) return
-
-  isSaving.value = true
-
-  try {
-    const approvedAiItems = provisionalItems.value
-      .filter((item) => item.approved)
-      .map((item) => ({
-        name: item.name,
-        description: item.description,
-      }))
-
-    const itemsToInsert = [...queuedManualItems.value, ...approvedAiItems].map((item) => ({
-      name: item.name,
-      description: item.description,
-      box_id: props.boxId,
-    }))
-
-    const { data: itemData, error } = await supabase.from('items').insert(itemsToInsert).select('id')
-
-    if (error) {
-      console.error('Error saving items:', error)
-      return
-    }
-
+// Function to save item to Supabase
+const saveItem = async () => {
+  const { data: itemData, error } = await supabase
+    .from('items')
+    .insert([{ name: name.value, description: description.value, box_id: props.boxId }])
+    .select('id')
+  if (error) {
+    console.error('Error saving item:', error)
+  } else {
+    const itemId = itemData[0].id
     const { data: boxData } = await supabase.from('boxes').select('*').eq('id', props.boxId)
 
     if (boxData && boxData[0]) {
@@ -326,6 +339,14 @@ const saveItems = async () => {
         items: [...(boxData[0].items || []), ...itemData.map((item) => item.id)],
       })
     }
+  }
+  // close dialog and reset form
+  isOpen.value = false
+  name.value = ''
+  description.value = ''
+  previewText.value = ''
+  identifyError.value = ''
+  lastIdentifyAction.value = null
 
     emit('item-added')
     isOpen.value = false
@@ -336,22 +357,11 @@ const saveItems = async () => {
 }
 
 const cancel = () => {
-  resetDialog()
-}
-
-const resetDialog = () => {
   name.value = ''
   description.value = ''
-  queuedManualItems.value = []
-
-  aiImageDataUrl.value = ''
-  aiInstructions.value = ''
-  provisionalItems.value = []
+  previewText.value = ''
   identifyError.value = ''
-
-  if (uploadInput.value) {
-    uploadInput.value.value = ''
-  }
+  lastIdentifyAction.value = null
 }
 
 defineExpose({ isOpen })
