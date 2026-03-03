@@ -8,12 +8,15 @@
       </q-card-section>
 
       <q-card-section>
-        <BoxQrLabel
-          ref="labelComponent"
-          :qr-value="qrValue"
-          :box-name="box.name"
-          :short-identifier="shortIdentifier"
-        />
+        <p>Box Name: {{ box.name }}</p>
+        <QRCodeCanvas ref="qrCodeCanvasRef" :url="box.qr_code_url" />
+      </q-card-section>
+      <q-card-section>
+        <q-card-actions>
+          <q-btn color="primary" label="Download QR Code" @click="downloadQRCode" class="q-mb-sm" />
+          <q-btn color="primary" label="Print QR Code" @click="printQRCode" class="q-mb-sm" />
+          <q-btn color="primary" label="Share QR Code" @click="shareQRCode" class="q-mb-sm" />
+        </q-card-actions>
       </q-card-section>
 
       <q-card-actions align="between" class="q-gutter-sm">
@@ -37,7 +40,12 @@ const props = defineProps({
     required: true,
   },
 })
-
+import { ref, onMounted } from 'vue'
+onMounted(() => {
+  console.log('Box:', props.box)
+})
+const box = ref(props.box)
+const qrCodeCanvasRef = ref(null)
 const isOpen = ref(false)
 const labelComponent = ref(null)
 
@@ -49,12 +57,41 @@ const shortIdentifier = computed(() => {
 })
 
 defineExpose({ isOpen })
+const getQRCodeDataUrl = () => {
+  return qrCodeCanvasRef.value?.getQRCodeDataUrl?.() || null
+}
 
-const downloadFile = (blob, filename) => {
-  const url = URL.createObjectURL(blob)
+const getQRCodeBlob = async () => {
+  return (await qrCodeCanvasRef.value?.getQRCodeBlob?.()) || null
+}
+
+// eslint-disable-next-line no-unused-vars
+const copyToClipboard = () => {
+  const qrCodeDataUrl = getQRCodeDataUrl()
+  if (!qrCodeDataUrl) {
+    console.error('QR code is not ready yet')
+    return
+  }
+
+  navigator.clipboard
+    .writeText(qrCodeDataUrl)
+    .then(() => {
+      console.log('QR code URL copied to clipboard')
+    })
+    .catch((err) => {
+      console.error('Error copying QR code URL:', err)
+    })
+}
+const downloadQRCode = () => {
+  const qrCodeDataUrl = getQRCodeDataUrl()
+  if (!qrCodeDataUrl) {
+    console.error('QR code is not ready yet')
+    return
+  }
+
   const link = document.createElement('a')
-  link.href = url
-  link.download = filename
+  link.href = qrCodeDataUrl
+  link.download = 'qr_code.png'
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -139,68 +176,58 @@ const downloadLabelSvg = async () => {
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
   downloadFile(blob, `${props.box.name || 'box'}-label.svg`)
 }
-
-const printLabel = () => {
-  const qrImage = labelComponent.value?.qrDataUrl || ''
-  const boxName = props.box.name || 'Untitled box'
-  const identifier = shortIdentifier.value
+const printQRCode = () => {
+  const qrCodeDataUrl = getQRCodeDataUrl()
+  if (!qrCodeDataUrl) {
+    console.error('QR code is not ready yet')
+    return
+  }
 
   const printWindow = window.open('', '_blank')
-  if (!printWindow) return
+  if (!printWindow) {
+    console.error('Unable to open print window')
+    return
+  }
 
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Print Box Label</title>
-        <style>
-          @page { size: 63.5mm 38.1mm; margin: 0; }
-          body { margin: 0; font-family: Arial, sans-serif; }
-          .label {
-            width: 63.5mm;
-            height: 38.1mm;
-            box-sizing: border-box;
-            padding: 3.5mm;
-            display: grid;
-            grid-template-columns: 24mm 1fr;
-            gap: 3mm;
-            align-items: center;
-          }
-          .label img { width: 24mm; height: 24mm; object-fit: contain; }
-          h1 { font-size: 13px; margin: 0; line-height: 1.2; }
-          p { font-size: 11px; margin: 4px 0 0; color: #455a64; }
-        </style>
-      </head>
-      <body>
-        <article class="label">
-          <img src="${qrImage}" alt="QR code" />
-          <div>
-            <h1>${boxName}</h1>
-            ${identifier ? `<p>${identifier}</p>` : ''}
-          </div>
-        </article>
-      </body>
-    </html>
-  `)
+  printWindow.document.write('<html><head><title>Print QR Code</title></head><body>')
+  printWindow.document.write('<img src="' + qrCodeDataUrl + '" />')
+  printWindow.document.write('</body></html>')
   printWindow.document.close()
   printWindow.onload = () => {
     printWindow.print()
     printWindow.close()
   }
 }
-
 const shareQRCode = async () => {
-  if (!navigator.share || !qrValue.value) {
+  const qrCodeDataUrl = getQRCodeDataUrl()
+  if (!qrCodeDataUrl) {
+    console.error('QR code is not ready yet')
     return
   }
 
-  try {
-    await navigator.share({
-      title: `QR for ${props.box.name}`,
-      text: `Scan this code to open ${props.box.name}`,
-      url: qrValue.value,
-    })
-  } catch (error) {
-    console.error('Error sharing QR code:', error)
+  if (navigator.share) {
+    const qrCodeBlob = await getQRCodeBlob()
+    const qrCodeFile = qrCodeBlob ? new File([qrCodeBlob], 'qr_code.png', { type: 'image/png' }) : null
+    const sharePayload = {
+      title: 'Share QR Code',
+      text: 'Here is the QR code for the box.',
+      url: qrCodeDataUrl,
+    }
+
+    if (qrCodeFile && navigator.canShare && navigator.canShare({ files: [qrCodeFile] })) {
+      sharePayload.files = [qrCodeFile]
+    }
+
+    navigator
+      .share(sharePayload)
+      .then(() => {
+        console.log('QR code shared successfully')
+      })
+      .catch((err) => {
+        console.error('Error sharing QR code:', err)
+      })
+  } else {
+    alert('Sharing not supported on this browser.')
   }
 }
 </script>
