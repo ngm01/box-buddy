@@ -252,7 +252,6 @@ const base64ToBytes = (dataUrl) => {
   return bytes
 }
 
-// Function to scan barcode using Capacitor
 const scanBarcode = async () => {
   try {
     const response = await fetch(apiUrl, {
@@ -285,9 +284,37 @@ const scanBarcode = async () => {
   }
 }
 
-// Function to use AI image recognition (V2 Feature)
 const identifyImage = async () => {
-  alert('AI Recognition is a paid feature and coming soon!')
+  if (!requireEntitlement({ feature: 'ai', reason: 'Monthly AI recognition limit reached.' })) {
+    return
+  }
+
+  try {
+    const imageData = await captureImage()
+    if (!imageData) {
+      throw new Error('Could not capture an image for AI recognition.')
+    }
+
+    const { data } = await axios.post('https://api.boxbuddy.io/ai/recognize', {
+      image: imageData,
+    })
+
+    name.value = data?.label || name.value
+    description.value = data?.description || description.value
+    previewText.value = data?.label ? `AI identified: ${data.label}` : 'AI scan complete'
+  } catch (error) {
+    const normalized = normalizeApiError(error)
+
+    if (normalized.action === 'open_paywall') {
+      openPaywallModal(normalized.feature || 'ai', {
+        reason: normalized.message,
+        details: normalized.details,
+      })
+      return
+    }
+
+    $q.notify({ type: 'negative', message: normalized.message })
+  }
 }
 
 // Function to save item through API gateway
