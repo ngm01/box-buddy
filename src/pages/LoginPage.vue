@@ -2,6 +2,9 @@
   <div class="q-pa-md text-center">
     <div class="text-h4 q-mb-xl">Box Buddy 📦</div>
     <div class="q-pa-md text-center">
+      <q-banner v-if="sessionMessage" class="bg-orange-2 text-orange-10 q-mb-md" rounded>
+        {{ sessionMessage }}
+      </q-banner>
       <q-form @submit="login" class="q-gutter-y-md">
         <q-input
           autocomplete="email"
@@ -38,9 +41,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+const route = useRoute()
 const router = useRouter()
 
 import { useAuthStore } from 'src/stores/auth.store'
@@ -52,6 +56,14 @@ const $q = useQuasar()
 const email = ref('')
 const password = ref('')
 const error = ref('')
+
+const sessionMessage = computed(() => {
+  if (route.query.message === 'session-expired') {
+    return 'Your session expired. Please log in again.'
+  }
+
+  return ''
+})
 
 const login = async () => {
   $q.loading.show()

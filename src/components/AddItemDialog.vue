@@ -1,13 +1,27 @@
 <template>
-  <q-dialog v-model="isOpen">
-    <q-card class="q-pa-md">
+  <q-dialog v-model="isOpen" @hide="resetDialog">
+    <q-card class="q-pa-md add-item-card">
       <q-card-section>
-        <div class="text-h6">Add Item</div>
+        <div class="text-h6">Add Items</div>
+        <div class="text-caption text-grey-7">
+          Add a single item manually, or use AI to identify multiple items from one photo.
+        </div>
       </q-card-section>
 
-      <q-card-section>
+      <q-separator class="q-mb-md" />
+
+      <q-card-section class="q-gutter-md">
         <q-input v-model="name" label="Item Name" outlined />
-        <q-input v-model="description" label="Description" outlined type="textarea" />
+        <q-input v-model="description" label="Description" outlined type="textarea" autogrow />
+
+        <div class="row justify-end">
+          <q-btn color="primary" outline label="Add Manual Item to Queue" @click="queueManualItem" />
+        </div>
+
+        <q-banner v-if="queuedManualItems.length" rounded class="bg-blue-1 text-blue-10">
+          {{ queuedManualItems.length }} manual item{{ queuedManualItems.length === 1 ? '' : 's' }} queued
+          for save.
+        </q-banner>
       </q-card-section>
 
       <q-card-section class="row justify-center q-gutter-md">
@@ -34,8 +48,39 @@
         </q-banner>
       </q-card-section>
 
-      <q-card-section v-if="previewText">
-        <q-banner class="bg-green-2 q-pa-sm">Scanned Data: {{ previewText }}</q-banner>
+      <q-card-section v-if="provisionalItems.length">
+        <div class="text-subtitle1 q-mb-sm">Review AI-identified items</div>
+        <q-list bordered separator>
+          <q-item v-for="item in provisionalItems" :key="item.localId">
+            <q-item-section avatar>
+              <q-checkbox v-model="item.approved" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>{{ item.name }}</q-item-label>
+              <q-item-label caption>
+                {{ item.description || 'No description provided by AI' }}
+              </q-item-label>
+              <q-item-label caption v-if="item.boundingBox">
+                Region: {{ formatBoundingBox(item.boundingBox) }}
+              </q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-card-section>
+
+      <q-card-section v-if="provisionalItems.length">
+        <div class="text-subtitle1 q-mb-sm">AI Identified Items</div>
+        <q-list bordered separator>
+          <q-item v-for="(item, index) in provisionalItems" :key="`${item.name}-${index}`">
+            <q-item-section>
+              <q-item-label>{{ item.name }}</q-item-label>
+              <q-item-label caption>{{ item.description || 'No notes' }}</q-item-label>
+              <q-item-label caption>
+                Center: {{ item.coordinates?.x ?? 'n/a' }}, {{ item.coordinates?.y ?? 'n/a' }}
+              </q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
       </q-card-section>
 
       <q-card-actions align="right">
@@ -49,7 +94,6 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
-import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
 import { supabase } from '../utils/supabase'
 import { useBoxesStore } from 'src/stores/boxes.store'
 import { useAuthStore } from 'src/stores/auth.store'
@@ -60,19 +104,19 @@ const API_BASE = 'https://api.boxbuddy.io'
 
 // Dialog visibility
 const isOpen = ref(false)
+
 const props = defineProps({
   boxId: {
     type: String,
     required: true,
   },
 })
+
 const emit = defineEmits(['item-added'])
 
-// Form inputs
 const name = ref('')
 const description = ref('')
-const previewText = ref('')
-const enableAI = ref(true) // V2/Paid Feature
+const queuedManualItems = ref([])
 
 const isUploading = ref(false)
 const isIdentifying = ref(false)
@@ -209,8 +253,27 @@ const captureImage = async () => {
     throw new Error('No image captured')
   } catch (error) {
     console.error('Error capturing image:', error)
-    return null
+    identifyError.value = 'Could not capture image. You can upload a photo instead.'
   }
+}
+
+const triggerUpload = () => {
+  uploadInput.value?.click()
+}
+
+const onFileSelected = (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    aiImageDataUrl.value = typeof reader.result === 'string' ? reader.result : ''
+    identifyError.value = ''
+  }
+  reader.onerror = () => {
+    identifyError.value = 'Could not read the selected file.'
+  }
+  reader.readAsDataURL(file)
 }
 
 const base64ToBytes = (dataUrl) => {
@@ -228,16 +291,33 @@ const base64ToBytes = (dataUrl) => {
 // Function to scan barcode using Capacitor
 const scanBarcode = async () => {
   try {
-    await CapacitorBarcodeScanner.checkPermission({ force: true })
-    CapacitorBarcodeScanner.hideBackground()
-    const result = await CapacitorBarcodeScanner.startScan()
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: aiImageDataUrl.value,
+        instructions: aiInstructions.value,
+        boxId: props.boxId,
+      }),
+    })
 
-    if (result.hasContent) {
-      name.value = result.content
-      previewText.value = `Barcode: ${result.content}`
+    if (!response.ok) {
+      throw new Error(`AI request failed: ${response.status}`)
+    }
+
+    const data = await response.json()
+    provisionalItems.value = normalizeIdentifiedItems(data)
+
+    if (!provisionalItems.value.length) {
+      identifyError.value = 'AI did not return identifiable items for this photo.'
     }
   } catch (error) {
-    console.error('Barcode Scan Error:', error)
+    console.error('AI identify error:', error)
+    identifyError.value = 'Could not identify items from the photo. Please try again.'
+  } finally {
+    isIdentifying.value = false
   }
 }
 
@@ -252,10 +332,11 @@ const saveItem = async () => {
   } else {
     const itemId = itemData[0].id
     const { data: boxData } = await supabase.from('boxes').select('*').eq('id', props.boxId)
-    if (boxData) {
+
+    if (boxData && boxData[0]) {
       await boxesStore.updateBox(props.boxId, {
         ...boxData[0],
-        items: [...boxData[0].items, itemId],
+        items: [...(boxData[0].items || []), ...itemData.map((item) => item.id)],
       })
     }
   }
@@ -267,7 +348,12 @@ const saveItem = async () => {
   identifyError.value = ''
   lastIdentifyAction.value = null
 
-  emit('item-added')
+    emit('item-added')
+    isOpen.value = false
+    resetDialog()
+  } finally {
+    isSaving.value = false
+  }
 }
 
 const cancel = () => {
@@ -278,13 +364,16 @@ const cancel = () => {
   lastIdentifyAction.value = null
 }
 
-// Expose `isOpen` to be controlled from the parent component
 defineExpose({ isOpen })
 </script>
 
 <style scoped>
-.q-card {
-  width: 400px;
-  max-width: 90vw;
+.add-item-card {
+  width: 680px;
+  max-width: 95vw;
+}
+
+.ai-preview {
+  max-height: 220px;
 }
 </style>
