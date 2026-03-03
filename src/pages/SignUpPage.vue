@@ -57,11 +57,11 @@
 
 <script setup>
 import { ref } from 'vue'
-//import { useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 //import { useAuthStore } from 'src/stores/auth.store'
 import { supabase } from '../utils/supabase'
 
-//const router = useRouter()
+const router = useRouter()
 //const authStore = useAuthStore()
 
 const displayName = ref('')
@@ -69,6 +69,11 @@ const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
+
+const getSignupSuccessRedirectUrl = () => {
+  const baseUrl = process.env.APP_URL || window.location.origin
+  return new URL('/signup-success', baseUrl).toString()
+}
 
 const signUp = async () => {
   try {
@@ -91,11 +96,11 @@ const signUp = async () => {
       email: email.value,
       password: password.value,
       options: {
+        emailRedirectTo: getSignupSuccessRedirectUrl(),
         data: {
           display_name: displayName.value,
         },
       },
-      redirectTo: 'http://localhost:9000/signup-success',
     })
 
     if (authError) throw authError
@@ -110,6 +115,13 @@ const signUp = async () => {
     ])
 
     if (profileError) throw profileError
+
+    await router.push({
+      path: '/signup-success',
+      query: {
+        email: email.value,
+      },
+    })
   } catch (err) {
     error.value = err.message
   }
