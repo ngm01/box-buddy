@@ -293,6 +293,9 @@ const handleItemSearch = () => {
       pageState.value = 'error'
       return
     }
+  } catch (error) {
+    console.error('Error fetching box details:', error)
+  }
 
   try {
     await boxesStore.updateBox(box.value.id, {
