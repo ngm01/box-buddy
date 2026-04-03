@@ -120,6 +120,7 @@ import { useSubscription } from 'src/composables/useSubscription'
 import { normalizeApiError } from 'src/utils/apiErrors'
 import PaywallGate from 'src/components/paywall/PaywallGate.vue'
 
+const { requireEntitlement, openPaywallModal } = useSubscription()
 const router = useRouter()
 const boxesStore = useBoxesStore()
 const { boxes } = storeToRefs(boxesStore)
