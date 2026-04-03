@@ -112,7 +112,7 @@ export const useAuthStore = defineStore('auth', () => {
     return true
   }
 
-  const signup = async ({ email, password }) => {
+  const signup = async ({ email, password, display_name, redirect_to }) => {
     email = typeof email === 'string' ? email : unref(email)
     password = typeof password === 'string' ? password : unref(password)
     display_name = typeof display_name === 'string' ? display_name : unref(display_name)
