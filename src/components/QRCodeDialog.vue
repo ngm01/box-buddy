@@ -30,7 +30,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import QRCode from 'qrcode'
 import BoxQrLabel from './BoxQrLabel.vue'
 
@@ -40,7 +40,6 @@ const props = defineProps({
     required: true,
   },
 })
-import { ref, onMounted } from 'vue'
 onMounted(() => {
   console.log('Box:', props.box)
 })
