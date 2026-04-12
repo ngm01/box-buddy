@@ -32,7 +32,6 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import QRCode from 'qrcode'
-import BoxQrLabel from './BoxQrLabel.vue'
 
 const props = defineProps({
   box: {
@@ -46,7 +45,6 @@ onMounted(() => {
 const box = ref(props.box)
 const qrCodeCanvasRef = ref(null)
 const isOpen = ref(false)
-const labelComponent = ref(null)
 
 const qrValue = computed(() => props.box?.qr_code_url || '')
 const shortIdentifier = computed(() => {
@@ -94,7 +92,6 @@ const downloadQRCode = () => {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  URL.revokeObjectURL(url)
 }
 
 const createLabelCanvas = async () => {
@@ -133,6 +130,17 @@ const createLabelCanvas = async () => {
   }
 
   return canvas
+}
+
+const downloadFile = (blob, filename) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 const downloadLabelPng = async () => {

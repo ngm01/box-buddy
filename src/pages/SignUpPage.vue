@@ -58,11 +58,10 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth.store'
 import { useQuasar } from 'quasar'
+import { supabase } from 'src/utils/supabase'
 
-const router = useRouter()
 const authStore = useAuthStore()
 const $q = useQuasar()
 
@@ -72,11 +71,6 @@ const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
 const message = ref('')
-
-const getSignupSuccessRedirectUrl = () => {
-  const baseUrl = process.env.APP_URL || window.location.origin
-  return new URL('/signup-success', baseUrl).toString()
-}
 
 const signUp = async () => {
   $q.loading.show()
@@ -102,15 +96,15 @@ const signUp = async () => {
       return
     }
 
-    const result = await authStore.signup({
+    const authData = await authStore.signup({
       displayName: displayName.value,
       email: email.value,
       password: password.value,
       redirectTo: `${window.location.origin}/signup-success`,
     })
 
-    if (!result.ok) {
-      error.value = result.message
+    if (!authData.ok) {
+      error.value = authData.message
       return
     }
 
