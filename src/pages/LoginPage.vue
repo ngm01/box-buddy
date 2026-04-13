@@ -2,6 +2,9 @@
   <div class="q-pa-md text-center">
     <div class="text-h4 q-mb-xl">Box Buddy 📦</div>
     <div class="q-pa-md text-center">
+      <q-banner v-if="sessionMessage" class="bg-orange-2 text-orange-10 q-mb-md" rounded>
+        {{ sessionMessage }}
+      </q-banner>
       <q-form @submit="login" class="q-gutter-y-md">
         <q-input
           autocomplete="email"
@@ -27,6 +30,9 @@
         />
         <q-btn type="submit" color="primary" label="Login" class="full-width" />
       </q-form>
+      <div class="q-mt-sm text-right">
+        <router-link to="/forgot-password">Forgot password?</router-link>
+      </div>
       <div class="q-mt-md text-center">
         Don't have an account? <router-link to="/signup">Sign up</router-link>
       </div>
@@ -38,9 +44,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+const route = useRoute()
 const router = useRouter()
 
 import { useAuthStore } from 'src/stores/auth.store'
@@ -53,13 +60,22 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 
+const sessionMessage = computed(() => {
+  if (route.query.message === 'session-expired') {
+    return 'Your session expired. Please log in again.'
+  }
+
+  return ''
+})
+
 const login = async () => {
   $q.loading.show()
 
   try {
     console.log('Attempting login with:', email.value)
     await authStore.login(email.value, password.value)
-    router.push('/')
+    const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    router.push(redirectTo)
   } catch (err) {
     error.value = err.message
   } finally {
