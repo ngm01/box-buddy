@@ -183,21 +183,25 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-//import { useBoxesStore } from 'src/stores/boxes.store'
 import { useRoute, useRouter } from 'vue-router'
-//import { storeToRefs } from 'pinia'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 import { useBoxesStore } from 'src/stores/boxes.store'
 import { useItemsStore } from 'src/stores/items.store'
+import { supabase } from 'src/utils/supabase'
 
 const route = useRoute()
+const router = useRouter()
+const boxesStore = useBoxesStore()
+const itemsStore = useItemsStore()
 const box = ref(null)
 const boxDraft = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const addItemDialog = ref(null)
 const qrCodeDialog = ref(null)
 const items = ref([])
 const isEditing = ref(false)
+const isLoading = ref(false)
+const pageState = ref('ready')
 const itemSearch = ref('')
 let itemSearchDebounce = null
 
@@ -245,6 +249,21 @@ const startEditingBox = () => {
   isEditing.value = true
 }
 
+const fetchItems = async () => {
+  if (!box.value?.id) return
+  items.value = await itemsStore.fetchItemsByBox(box.value.id, itemSearch.value)
+}
+
+const handleItemSearch = () => {
+  if (itemSearchDebounce) {
+    clearTimeout(itemSearchDebounce)
+  }
+
+  itemSearchDebounce = setTimeout(async () => {
+    await fetchItems()
+  }, 250)
+}
+
 const fetchBoxDetails = async () => {
   isLoading.value = true
   pageState.value = 'ready'
@@ -263,28 +282,13 @@ const fetchBoxDetails = async () => {
       return
     }
 
-    const { data: boxData, error: boxError } = await boxQuery.single()
-
-const fetchItems = async () => {
-  if (!box.value?.id) return
-  items.value = await itemsStore.fetchItemsByBox(box.value.id, itemSearch.value)
-}
-
-const handleItemSearch = () => {
-  if (itemSearchDebounce) {
-    clearTimeout(itemSearchDebounce)
-  }
-
-  itemSearchDebounce = setTimeout(async () => {
-    await fetchItems()
-  }, 250)
-}
+    const { data: boxData } = await boxQuery.single()
 
     if (!id && display_name && box_name) {
       await router.replace(`/boxes/${encodeURIComponent(boxData.id)}`)
     }
 
-    const { data: itemsData, error: itemsError } = await supabase
+    const { error: itemsError } = await supabase
       .from('items')
       .select('*')
       .eq('box_id', box.value.id)
@@ -296,7 +300,9 @@ const handleItemSearch = () => {
   } catch (error) {
     console.error('Error fetching box details:', error)
   }
+}
 
+const updateBox = async () => {
   try {
     await boxesStore.updateBox(box.value.id, {
       name: boxDraft.value.name,
@@ -309,6 +315,10 @@ const handleItemSearch = () => {
   } catch (error) {
     console.error('Error updating box:', error)
   }
+}
+
+const cancelEdit = () => {
+  isEditing.value = false
 }
 
 const openEditItemDialog = (item) => {
