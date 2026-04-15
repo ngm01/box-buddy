@@ -1,29 +1,24 @@
-import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useSubscriptionStore } from 'src/stores/subscription.store'
-import { usePaywallStore } from 'src/stores/paywall.store'
+// TEMPORARY STUB — subscription/paywall not yet connected to Supabase.
+// Replace this file with the real implementation once subscriptions are set up.
+import { computed, ref } from 'vue'
 
 export const useSubscription = () => {
-  const subscriptionStore = useSubscriptionStore()
-  const paywallStore = usePaywallStore()
+  const plan = ref('free')
+  const limits = ref({})
+  const usage = ref({ box_count: 0, item_count_total: 0, ai_requests_used_this_month: 0 })
+  const remaining = ref({})
+  const currentPeriodEnd = ref(null)
+  const isPaid = ref(false)
+  const canCreateBox = ref(true)
+  const canCreateItem = ref(true)
+  const canUseAI = ref(true)
 
-  const { plan, limits, usage, remaining, isPaid, canCreateBox, canCreateItem, canUseAI, currentPeriodEnd } =
-    storeToRefs(subscriptionStore)
-
-  const requireEntitlement = ({ feature, reason, details } = {}) => {
-    const allowed = subscriptionStore.canUseFeature(feature)
-
-    if (!allowed) {
-      paywallStore.openPaywallModal(feature, {
-        reason: reason || `Your current plan cannot access ${feature}.`,
-        details,
-      })
-    }
-
-    return allowed
-  }
-
-  const canUseFeature = computed(() => subscriptionStore.canUseFeature)
+  const canUseFeature = computed(() => () => true)
+  const requireEntitlement = () => true
+  const openPaywallModal = () => {}
+  const closePaywallModal = () => {}
+  const fetchSubscription = async () => {}
+  const setUsageCounts = () => {}
 
   return {
     plan,
@@ -36,10 +31,10 @@ export const useSubscription = () => {
     canCreateItem,
     canUseAI,
     canUseFeature,
-    fetchSubscription: subscriptionStore.fetchSubscription,
-    setUsageCounts: subscriptionStore.setUsageCounts,
+    fetchSubscription,
+    setUsageCounts,
     requireEntitlement,
-    openPaywallModal: paywallStore.openPaywallModal,
-    closePaywallModal: paywallStore.closePaywallModal,
+    openPaywallModal,
+    closePaywallModal,
   }
 }

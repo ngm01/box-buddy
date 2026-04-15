@@ -6,10 +6,6 @@ const routes = [
       { path: '', component: () => import('src/pages/BoxListPage.vue') },
       { path: '/boxes', component: () => import('src/pages/BoxListPage.vue') },
       {
-        path: '/boxes/:id',
-        component: () => import('src/pages/BoxDetailPage.vue'),
-      },
-      {
         path: '/boxes/:display_name/:box_name',
         component: () => import('src/pages/BoxDetailPage.vue'),
       },

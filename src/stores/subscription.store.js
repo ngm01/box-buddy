@@ -1,10 +1,12 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+// eslint-disable-next-line no-unused-vars
 import { supabase } from 'src/utils/supabase'
 import { useAuthStore } from 'src/stores/auth.store'
 import { FEATURE_PLAN_MAP, PLAN_LIMITS, normalizePlan } from 'src/entitlements/subscriptionPlans'
 
 export const useSubscriptionStore = defineStore('subscription', () => {
+  // eslint-disable-next-line no-unused-vars
   const authStore = useAuthStore()
 
   const plan = ref('free')
@@ -74,30 +76,8 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     itemCountTotal.value = Number(profile.item_count_total || 0)
   }
 
-  const fetchSubscription = async () => {
-    if (!authStore.user?.id) return
-
-    loading.value = true
-    error.value = null
-
-    try {
-      const { data, error: queryError } = await supabase
-        .from('profiles')
-        .select(
-          'plan, ai_requests_used_this_month, ai_requests_limit, current_period_end, box_count, item_count_total',
-        )
-        .eq('id', authStore.user.id)
-        .single()
-
-      if (queryError) throw queryError
-      hydrateFromProfile(data)
-    } catch (err) {
-      console.error('Failed to fetch subscription profile:', err)
-      error.value = err
-    } finally {
-      loading.value = false
-    }
-  }
+  // TEMPORARY: subscriptions not yet set up in Supabase — no-op until profiles table exists.
+  const fetchSubscription = async () => {}
 
   const setUsageCounts = ({ boxCount: nextBoxCount, itemCountTotal: nextItemCount } = {}) => {
     if (typeof nextBoxCount === 'number') {

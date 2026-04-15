@@ -1,200 +1,64 @@
-// auth.store.js — captures/stores JWT via your API proxy
 import { defineStore } from 'pinia'
-import { ref, computed, unref } from 'vue'
-import axios from 'axios'
-
-const API_BASE = 'https://api.boxbuddy.io/auth'
-
-const getJwtPayload = (token) => {
-  try {
-    if (!token || typeof token !== 'string') return null
-    const [, payload] = token.split('.')
-    if (!payload) return null
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
-    const decoded = decodeURIComponent(
-      atob(normalized)
-        .split('')
-        .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
-        .join(''),
-    )
-    return JSON.parse(decoded)
-  } catch (e) {
-    console.warn('Failed to parse JWT payload', e)
-    return null
-  }
-}
-
-const isTokenExpired = (token, graceSeconds = 30) => {
-  const payload = getJwtPayload(token)
-  if (!payload?.exp) return true
-  return payload.exp <= Math.floor(Date.now() / 1000) + graceSeconds
-}
+import { ref, computed } from 'vue'
+import { supabase } from 'src/utils/supabase'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
   const accessToken = ref(null)
-  const refreshToken = ref(null)
 
   const token = computed(() => accessToken.value)
-  const isAuthenticated = computed(() => !!accessToken.value && !isTokenExpired(accessToken.value))
+  const isAuthenticated = computed(() => !!user.value)
 
-  const getErrorMessage = (err, fallback) => {
-    return (
-      err?.response?.data?.message ||
-      err?.response?.data?.error_description ||
-      err?.response?.data?.error ||
-      err?.message ||
-      fallback
-    )
-  }
-
-  const normalizeAuthResult = ({ ok, message = '', data = null, error = null }) => ({
-    ok,
-    message,
-    user: data?.user || null,
-    accessToken: data?.access_token || null,
-    refreshToken: data?.refresh_token || null,
-    requiresEmailVerification: Boolean(data?.requires_email_verification || data?.email_confirmation_sent),
-    error,
-    raw: data,
+  // Keep store in sync whenever Supabase auth state changes
+  // (login, logout, token refresh, tab focus, etc.)
+  supabase.auth.onAuthStateChange((_event, session) => {
+    user.value = session?.user ?? null
+    accessToken.value = session?.access_token ?? null
   })
 
-  const persist = () => {
-    try {
-      localStorage.setItem('bb_user', JSON.stringify(user.value))
-      localStorage.setItem('bb_access', accessToken.value || '')
-      localStorage.setItem('bb_refresh', refreshToken.value || '')
-    } catch (e) {
-      console.error('Persist error', e)
-    }
+  // Hydrates the store from the persisted Supabase session and
+  // returns true if a valid session exists.
+  const loadFromStorage = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    user.value = session?.user ?? null
+    accessToken.value = session?.access_token ?? null
+    return !!session
   }
 
-  const loadFromStorage = () => {
-    try {
-      const u = localStorage.getItem('bb_user')
-      user.value = u ? JSON.parse(u) : null
-      accessToken.value = localStorage.getItem('bb_access') || null
-      refreshToken.value = localStorage.getItem('bb_refresh') || null
-
-      if (accessToken.value && isTokenExpired(accessToken.value)) {
-        accessToken.value = null
-        refreshToken.value = null
-        user.value = null
-        persist()
-      }
-    } catch (e) {
-      console.error('Load error', e)
-    }
-  }
-
-  const hasValidSession = () => {
-    if (!accessToken.value) {
-      try {
-        accessToken.value = localStorage.getItem('bb_access') || null
-        refreshToken.value = localStorage.getItem('bb_refresh') || null
-        const u = localStorage.getItem('bb_user')
-        user.value = u ? JSON.parse(u) : user.value
-      } catch (e) {
-        console.error('Session restore error', e)
-      }
-    }
-
-    if (!accessToken.value) return false
-
-    if (isTokenExpired(accessToken.value)) {
-      accessToken.value = null
-      refreshToken.value = null
-      user.value = null
-      persist()
-      return false
-    }
-
-    return true
-  }
-
-  const signup = async ({ email, password, display_name, redirect_to }) => {
-    email = typeof email === 'string' ? email : unref(email)
-    password = typeof password === 'string' ? password : unref(password)
-    display_name = typeof display_name === 'string' ? display_name : unref(display_name)
-    redirect_to = typeof redirect_to === 'string' ? redirect_to : unref(redirect_to)
-
-    try {
-      await axios.post(`${API_BASE}/signup`, {
-        email,
-        password,
-        display_name,
-        redirect_to,
-      })
-      return true
-    } catch (err) {
-      const message = getErrorMessage(err, 'Sign up failed')
-      console.error('Signup failed:', message, err)
-      return normalizeAuthResult({ ok: false, message, error: err })
-    }
-  }
+  const hasValidSession = async () => loadFromStorage()
 
   const login = async (email, password) => {
-    console.log('Login called with:', email)
-    email = typeof email === 'string' ? email : unref(email)
-    password = typeof password === 'string' ? password : unref(password)
-    try {
-      const { data } = await axios.post(
-        `${API_BASE}/token?grant_type=password`,
-        { email, password },
-        {
-          headers: { 'Content-Type': 'application/json' },
-        },
-      )
-      accessToken.value = data.access_token
-      refreshToken.value = data.refresh_token
-      const me = await axios.get(`${API_BASE}/user`, {
-        headers: { Authorization: `Bearer ${accessToken.value}` },
-      })
-      user.value = me.data
-      persist()
-      return normalizeAuthResult({
-        ok: true,
-        message: 'Login successful',
-        data: {
-          ...data,
-          user: me.data,
-        },
-      })
-    } catch (err) {
-      console.error('Login failed:', err)
-      logout()
-      throw err
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
+    return { ok: true, user: data.user }
+  }
+
+  // Accepts both camelCase (displayName/redirectTo) and snake_case
+  // (display_name/redirect_to) so existing call sites keep working.
+  const signup = async ({ email, password, display_name, redirect_to, displayName, redirectTo }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { display_name: display_name ?? displayName },
+        emailRedirectTo: redirect_to ?? redirectTo,
+      },
+    })
+    if (error) return { ok: false, message: error.message, error }
+    return { ok: true, user: data.user, raw: data }
   }
 
   const logout = async () => {
-    let message = 'Logged out'
-    try {
-      if (accessToken.value) {
-        await axios.post(
-          `${API_BASE}/logout`,
-          {},
-          { headers: { Authorization: `Bearer ${accessToken.value}` } },
-        )
-      }
-    } catch (err) {
-      console.warn('Logout call failed (continuing):', err)
-      message = getErrorMessage(err, 'Logged out locally')
-    } finally {
-      accessToken.value = null
-      refreshToken.value = null
-      user.value = null
-      persist()
-    }
-
-    return normalizeAuthResult({ ok: true, message })
+    await supabase.auth.signOut()
+    return { ok: true, message: 'Logged out' }
   }
 
   return {
     user,
     token,
     accessToken,
-    refreshToken,
     isAuthenticated,
     hasValidSession,
     loadFromStorage,

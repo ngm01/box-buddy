@@ -28,6 +28,7 @@ export const useItemsStore = defineStore('items', () => {
 
   const fetchItemsByBox = async (boxId, searchTerm = '') => {
     try {
+      console.log('Fetching items for boxId:', boxId, 'with searchTerm:', searchTerm)
       const params = new URLSearchParams()
       params.set('box_id', `eq.${boxId}`)
       params.set('order', 'updated_at.desc.nullslast,created_at.desc.nullslast')
@@ -65,7 +66,9 @@ export const useItemsStore = defineStore('items', () => {
         ...itemData,
         tags: normalizeTags(itemData.tags),
       }
-      const res = await axios.patch(`${API_BASE}?id=eq.${itemId}`, payload, { headers: authHeader() })
+      const res = await axios.patch(`${API_BASE}?id=eq.${itemId}`, payload, {
+        headers: authHeader(),
+      })
       return res.data
     } catch (error) {
       console.error('Error updating item:', error)

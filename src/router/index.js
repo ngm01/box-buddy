@@ -21,18 +21,16 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     history: createHistory(process.env.VUE_ROUTER_BASE),
   })
 
-  Router.beforeEach((to, from, next) => {
+  Router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
-    authStore.loadFromStorage()
+    const valid = await authStore.hasValidSession()
 
-    const hasValidSession = authStore.hasValidSession()
-
-    if (to.meta.requiresAuth && !hasValidSession) {
+    if (to.meta.requiresAuth && !valid) {
       next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
 
-    if (to.path === '/login' && hasValidSession) {
+    if (to.path === '/login' && valid) {
       next('/')
       return
     }

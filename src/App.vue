@@ -6,7 +6,7 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { App as CapacitorApp } from '@capacitor/app'
-import { StatusBar } from '@capacitor/status-bar'
+import { Capacitor } from '@capacitor/core'
 
 const router = useRouter()
 let appUrlOpenListener
@@ -45,11 +45,13 @@ async function routeFromDeepLink(url) {
   }
 }
 
-onMounted(() => {
-  StatusBar.setBackgroundColor({ color: '#1976D2' })
-  StatusBar.setStyle({ style: 'LIGHT' })
-
-  StatusBar.show()
+onMounted(async () => {
+  if (Capacitor.isNativePlatform()) {
+    const { StatusBar } = await import('@capacitor/status-bar')
+    StatusBar.setBackgroundColor({ color: '#1976D2' })
+    StatusBar.setStyle({ style: 'LIGHT' })
+    StatusBar.show()
+  }
 
   appUrlOpenListener = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
     routeFromDeepLink(url)

@@ -33,7 +33,7 @@ export const useBoxesStore = defineStore('boxes', () => {
   const fetchBoxes = async (searchTerm = '') => {
     try {
       const params = new URLSearchParams()
-      params.set('order', 'updated_at.desc.nullslast,created_at.desc.nullslast')
+      params.set('order', 'date_updated.desc.nullslast,created_time.desc.nullslast')
 
       if (searchTerm?.trim()) {
         const escaped = searchTerm.trim().replaceAll(',', '\\,')
@@ -99,7 +99,9 @@ export const useBoxesStore = defineStore('boxes', () => {
 
   const updateBox = async (id, boxData) => {
     try {
-      const res = await apiClient.patch(`${API_BASE}/?id=eq.${id}`, boxData, { headers: authHeader() })
+      const res = await apiClient.patch(`${API_BASE}/?id=eq.${id}`, boxData, {
+        headers: authHeader(),
+      })
       return res.data
     } catch (error) {
       console.error('Error updating box:', error)

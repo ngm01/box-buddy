@@ -41,7 +41,9 @@
               <div>{{ box.description }}</div>
               <div class="text-caption">Access Level: {{ box.access_level }}</div>
               <div class="text-caption">Tags: {{ formatTags(box.tags) }}</div>
-              <div class="text-caption">Created: {{ formatDate(box.created_at || box.created_time) }}</div>
+              <div class="text-caption">
+                Created: {{ formatDate(box.created_at || box.created_time) }}
+              </div>
               <div class="text-caption">
                 Last updated: {{ formatDate(box.updated_at || box.date_updated) }}
               </div>
@@ -183,7 +185,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 import { useBoxesStore } from 'src/stores/boxes.store'
@@ -191,7 +193,6 @@ import { useItemsStore } from 'src/stores/items.store'
 import { supabase } from 'src/utils/supabase'
 
 const route = useRoute()
-const router = useRouter()
 const boxesStore = useBoxesStore()
 const itemsStore = useItemsStore()
 const box = ref(null)
@@ -269,36 +270,30 @@ const fetchBoxDetails = async () => {
   pageState.value = 'ready'
 
   try {
-    const { id, display_name, box_name } = route.params
+    const { display_name, box_name } = route.params
 
-    let boxQuery = supabase.from('boxes').select('*')
-
-    if (id) {
-      boxQuery = boxQuery.eq('id', id)
-    } else if (display_name && box_name) {
-      boxQuery = boxQuery.eq('display_name', display_name).eq('name', box_name)
-    } else {
+    if (!display_name || !box_name) {
       console.error('Invalid box route params')
       return
     }
 
-    const { data: boxData } = await boxQuery.single()
-
-    if (!id && display_name && box_name) {
-      await router.replace(`/boxes/${encodeURIComponent(boxData.id)}`)
-    }
-
-    const { error: itemsError } = await supabase
-      .from('items')
+    const { data: boxData, error: boxError } = await supabase
+      .from('boxes')
       .select('*')
-      .eq('box_id', box.value.id)
+      .eq('display_name', display_name)
+      .eq('name', box_name)
+      .single()
 
-    if (itemsError) {
-      pageState.value = 'error'
+    if (boxError) {
+      pageState.value = 'not_found'
       return
     }
+
+    box.value = boxData
   } catch (error) {
     console.error('Error fetching box details:', error)
+  } finally {
+    isLoading.value = false
   }
 }
 
