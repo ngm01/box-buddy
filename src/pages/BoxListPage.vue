@@ -133,6 +133,10 @@ const errorMessage = ref('')
 
 let searchDebounce = null
 
+const openCreateBoxModal = () => {
+  showCreateBoxModal.value = true
+}
+
 const handleBoxSearch = () => {
   if (searchDebounce) {
     clearTimeout(searchDebounce)

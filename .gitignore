@@ -35,3 +35,7 @@ yarn-error.log*
 
 # misc
 /src/scraps
+CLAUDE.md
+TASKS.md
+TASK*.md
+Box_Buddy_Wireframe.html

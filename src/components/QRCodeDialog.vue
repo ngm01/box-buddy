@@ -32,6 +32,7 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import QRCode from 'qrcode'
+import QRCodeCanvas from './QRCodeCanvas.vue'
 
 const props = defineProps({
   box: {
@@ -183,6 +184,26 @@ const downloadLabelSvg = async () => {
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
   downloadFile(blob, `${props.box.name || 'box'}-label.svg`)
 }
+const printLabel = async () => {
+  const canvas = await createLabelCanvas()
+  const dataUrl = canvas.toDataURL('image/png')
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    console.error('Unable to open print window')
+    return
+  }
+
+  printWindow.document.write('<html><head><title>Print Label</title></head><body style="margin:0">')
+  printWindow.document.write('<img src="' + dataUrl + '" style="width:100%" />')
+  printWindow.document.write('</body></html>')
+  printWindow.document.close()
+  printWindow.onload = () => {
+    printWindow.print()
+    printWindow.close()
+  }
+}
+
 const printQRCode = () => {
   const qrCodeDataUrl = getQRCodeDataUrl()
   if (!qrCodeDataUrl) {
