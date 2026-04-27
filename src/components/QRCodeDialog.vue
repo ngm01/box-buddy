@@ -8,8 +8,8 @@
       </q-card-section>
 
       <q-card-section>
-        <p>Box Name: {{ box.name }}</p>
-        <QRCodeCanvas ref="qrCodeCanvasRef" :url="box.qr_code_url" />
+        <p>Box Name: {{ props.box.name }}</p>
+        <QRCodeCanvas ref="qrCodeCanvasRef" :url="qrValue" />
       </q-card-section>
       <q-card-section>
         <q-card-actions>
@@ -30,9 +30,10 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref } from 'vue'
 import QRCode from 'qrcode'
 import QRCodeCanvas from './QRCodeCanvas.vue'
+import { safeWebBaseUrl } from 'src/config/app.config'
 
 const props = defineProps({
   box: {
@@ -40,14 +41,20 @@ const props = defineProps({
     required: true,
   },
 })
-onMounted(() => {
-  console.log('Box:', props.box)
-})
-const box = ref(props.box)
+
 const qrCodeCanvasRef = ref(null)
 const isOpen = ref(false)
 
-const qrValue = computed(() => props.box?.qr_code_url || '')
+// Use stored qr_code_url if available; otherwise derive it from box identifiers.
+// qr_code_url may be null on boxes fetched directly from Supabase before the
+// URL was ever persisted.
+const qrValue = computed(() => {
+  if (props.box?.qr_code_url) return props.box.qr_code_url
+  if (props.box?.display_name && props.box?.name) {
+    return `${safeWebBaseUrl}/boxes/${props.box.display_name}/${props.box.name}`
+  }
+  return ''
+})
 const shortIdentifier = computed(() => {
   const id = props.box?.id
   if (!id) return ''
