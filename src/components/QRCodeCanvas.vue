@@ -11,6 +11,10 @@ const props = defineProps({
     type: String,
     required: true,
   },
+  size: {
+    type: Number,
+    default: 200,
+  },
 })
 
 const canvasRef = ref(null)
@@ -20,7 +24,7 @@ const renderQR = async (url) => {
   try {
     await QRCode.toCanvas(canvasRef.value, url, {
       errorCorrectionLevel: 'H',
-      width: 200,
+      width: props.size,
     })
   } catch (error) {
     console.error('Error generating QR code:', error)
