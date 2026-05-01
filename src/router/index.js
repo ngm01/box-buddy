@@ -6,6 +6,7 @@ import {
   createWebHashHistory,
 } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth.store'
+import { useCreditsStore } from 'src/stores/credits.store'
 import routes from './routes'
 
 export default defineRouter(function (/* { store, ssrContext } */) {
@@ -33,6 +34,13 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     if (to.path === '/login' && valid) {
       next('/')
       return
+    }
+
+    if (valid) {
+      const creditsStore = useCreditsStore()
+      if (!creditsStore.isLoaded) {
+        creditsStore.fetchBalance()
+      }
     }
 
     next()
