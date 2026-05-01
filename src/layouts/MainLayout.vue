@@ -67,10 +67,12 @@ import { onMounted, ref } from 'vue'
 import { useAuthStore } from '../stores/auth.store'
 import { useRouter } from 'vue-router'
 import { useSubscriptionStore } from 'src/stores/subscription.store'
+import { useCreditsStore } from 'src/stores/credits.store'
 import PaywallModal from 'src/components/paywall/PaywallModal.vue'
 
 const authStore = useAuthStore()
 const subscriptionStore = useSubscriptionStore()
+const creditsStore = useCreditsStore()
 const router = useRouter()
 
 const leftDrawerOpen = ref(false)
@@ -86,6 +88,7 @@ async function handleLogout() {
   isLoggingOut.value = true
   try {
     await authStore.logout()
+    creditsStore.reset()
   } catch (error) {
     console.warn('Logout request failed; continuing sign-out flow.', error)
   } finally {
