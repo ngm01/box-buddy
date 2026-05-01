@@ -12,6 +12,11 @@
           @click="toggleLeftDrawer"
         />
         <q-toolbar-title> Box Buddy 📦 </q-toolbar-title>
+        <CreditPill
+          v-if="authStore.isAuthenticated"
+          class="q-mr-sm"
+          @open-credits-sheet="creditsSheetOpen = true"
+        />
         <q-btn
           flat
           dense
@@ -59,6 +64,7 @@
     </q-page-container>
 
     <PaywallModal />
+    <CreditsSheet v-model:is-open="creditsSheetOpen" />
   </q-layout>
 </template>
 
@@ -69,6 +75,8 @@ import { useRouter } from 'vue-router'
 import { useSubscriptionStore } from 'src/stores/subscription.store'
 import { useCreditsStore } from 'src/stores/credits.store'
 import PaywallModal from 'src/components/paywall/PaywallModal.vue'
+import CreditPill from 'src/components/CreditPill.vue'
+import CreditsSheet from 'src/components/CreditsSheet.vue'
 
 const authStore = useAuthStore()
 const subscriptionStore = useSubscriptionStore()
@@ -77,6 +85,7 @@ const router = useRouter()
 
 const leftDrawerOpen = ref(false)
 const isLoggingOut = ref(false)
+const creditsSheetOpen = ref(false)
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
