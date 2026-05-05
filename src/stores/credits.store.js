@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useAuthStore } from './auth.store'
+import { supabase } from 'src/utils/supabase'
 
 const API_BASE = (process.env.API_BASE || 'https://api.boxbuddy.io').replace(/\/$/, '')
 
@@ -25,9 +26,11 @@ export const useCreditsStore = defineStore('credits', () => {
   const fetchBalance = async () => {
     loading.value = true
     try {
-      const res = await fetch(`${API_BASE}/credits`, { headers: authHeader() })
-      if (!res.ok) throw new Error(`Failed to fetch credits: ${res.status}`)
-      const data = await res.json()
+      const { data, error } = await supabase
+        .from('user_credits')
+        .select('balance')
+        .single()
+      if (error) throw error
       balance.value = data.balance
     } catch (error) {
       console.error('Error fetching credit balance:', error)
@@ -38,10 +41,13 @@ export const useCreditsStore = defineStore('credits', () => {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/credits/history`, { headers: authHeader() })
-      if (!res.ok) throw new Error(`Failed to fetch credit history: ${res.status}`)
-      const data = await res.json()
-      transactions.value = data.transactions || []
+      const { data, error } = await supabase
+        .from('credit_transactions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (error) throw error
+      transactions.value = data
     } catch (error) {
       console.error('Error fetching credit history:', error)
     }
