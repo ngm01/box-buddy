@@ -13,8 +13,24 @@
       </template>
     </q-input>
 
+    <!-- Skeleton while loading -->
+    <q-list v-if="isLoading" bordered separator>
+      <q-item v-for="i in 4" :key="i">
+        <q-item-section>
+          <q-skeleton type="text" width="45%" height="18px" />
+          <q-skeleton type="text" width="70%" class="q-mt-xs" />
+          <q-skeleton type="text" width="35%" class="q-mt-xs" />
+          <q-skeleton type="text" width="50%" class="q-mt-xs" />
+          <q-skeleton type="text" width="50%" class="q-mt-xs" />
+        </q-item-section>
+        <q-item-section side>
+          <q-skeleton type="circle" size="24px" />
+        </q-item-section>
+      </q-item>
+    </q-list>
+
     <!-- List of boxes -->
-    <q-list v-if="boxes.length" bordered separator>
+    <q-list v-else-if="boxes.length" bordered separator>
       <q-item v-for="box in boxes" :key="box.id" clickable>
         <q-item-section @click="goToBoxDetail(box.display_name, box.name)">
           <q-item-label>{{ box.name }}</q-item-label>
@@ -130,6 +146,7 @@ const boxSearch = ref('')
 const showCreateBoxModal = ref(false)
 const showDeleteModal = ref(false)
 const errorMessage = ref('')
+const isLoading = ref(true)
 
 let searchDebounce = null
 
@@ -204,6 +221,10 @@ const deleteBox = async () => {
 }
 
 onMounted(async () => {
-  await boxesStore.fetchBoxes(boxSearch.value)
+  try {
+    await boxesStore.fetchBoxes(boxSearch.value)
+  } finally {
+    isLoading.value = false
+  }
 })
 </script>

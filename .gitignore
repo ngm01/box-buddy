@@ -35,6 +35,7 @@ yarn-error.log*
 
 # misc
 /src/scraps
+/backend/Supabase/migrations/202606070001_signup_bonus_credits.sql
 CLAUDE.md
 TASKS.md
 TASK*.md

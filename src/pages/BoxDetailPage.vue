@@ -1,7 +1,43 @@
 <template>
   <q-page>
     <div v-if="isLoading" class="q-pa-md">
-      <p>Loading...</p>
+      <div class="row">
+        <div class="col-12 col-md-8">
+          <!-- Box header skeleton -->
+          <div class="q-mb-md">
+            <q-skeleton type="text" width="42%" height="28px" class="q-mb-sm" />
+            <q-skeleton type="text" width="75%" />
+            <q-skeleton type="text" width="28%" class="q-mt-xs" />
+            <q-skeleton type="text" width="45%" class="q-mt-xs" />
+            <q-skeleton type="text" width="52%" class="q-mt-xs" />
+            <q-skeleton type="text" width="52%" class="q-mt-xs" />
+          </div>
+          <!-- Action buttons skeleton -->
+          <div class="row q-gutter-sm q-mb-lg">
+            <q-skeleton type="QBtn" width="130px" />
+            <q-skeleton type="QBtn" width="130px" />
+            <q-skeleton type="QBtn" width="110px" />
+          </div>
+        </div>
+      </div>
+      <!-- Items section skeleton -->
+      <q-skeleton type="text" width="12%" height="24px" class="q-mb-md" />
+      <q-skeleton type="QInput" class="q-mb-md" />
+      <q-list bordered separator>
+        <q-item v-for="i in 4" :key="i">
+          <q-item-section>
+            <q-skeleton type="text" width="38%" height="16px" />
+            <q-skeleton type="text" width="62%" class="q-mt-xs" />
+            <q-skeleton type="text" width="30%" class="q-mt-xs" />
+          </q-item-section>
+          <q-item-section side>
+            <div class="row q-gutter-x-sm">
+              <q-skeleton type="circle" size="32px" />
+              <q-skeleton type="circle" size="32px" />
+            </div>
+          </q-item-section>
+        </q-item>
+      </q-list>
     </div>
 
     <div v-else-if="pageState === 'forbidden'" class="q-pa-md">
@@ -266,7 +302,6 @@ const handleItemSearch = () => {
 }
 
 const fetchBoxDetails = async () => {
-  isLoading.value = true
   pageState.value = 'ready'
 
   try {
@@ -292,8 +327,6 @@ const fetchBoxDetails = async () => {
     box.value = boxData
   } catch (error) {
     console.error('Error fetching box details:', error)
-  } finally {
-    isLoading.value = false
   }
 }
 
@@ -356,8 +389,13 @@ const deleteItem = async () => {
 }
 
 onMounted(async () => {
-  await fetchBoxDetails()
-  await fetchItems()
+  isLoading.value = true
+  try {
+    await fetchBoxDetails()
+    await fetchItems()
+  } finally {
+    isLoading.value = false
+  }
 })
 </script>
 
