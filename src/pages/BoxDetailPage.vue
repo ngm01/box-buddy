@@ -1,45 +1,47 @@
 <template>
-  <q-page>
-    <div v-if="isLoading" class="q-pa-md">
-      <div class="row">
-        <div class="col-12 col-md-8">
-          <!-- Box header skeleton -->
-          <div class="q-mb-md">
-            <q-skeleton type="text" width="42%" height="28px" class="q-mb-sm" />
+  <q-page class="q-pa-md">
+    <!-- Loading skeleton -->
+    <div v-if="isLoading">
+      <!-- Breadcrumb skeleton -->
+      <q-skeleton type="text" width="120px" height="14px" class="q-mb-md" />
+      <!-- Box header card skeleton -->
+      <q-card flat bordered class="q-mb-md">
+        <q-card-section class="row items-start no-wrap q-pa-md">
+          <q-skeleton type="circle" size="48px" class="q-mr-md flex-shrink-0" />
+          <div class="col">
+            <q-skeleton type="text" width="42%" height="26px" class="q-mb-sm" />
             <q-skeleton type="text" width="75%" />
-            <q-skeleton type="text" width="28%" class="q-mt-xs" />
+            <q-skeleton type="text" width="60%" class="q-mt-xs" />
             <q-skeleton type="text" width="45%" class="q-mt-xs" />
-            <q-skeleton type="text" width="52%" class="q-mt-xs" />
-            <q-skeleton type="text" width="52%" class="q-mt-xs" />
           </div>
-          <!-- Action buttons skeleton -->
-          <div class="row q-gutter-sm q-mb-lg">
-            <q-skeleton type="QBtn" width="130px" />
-            <q-skeleton type="QBtn" width="130px" />
-            <q-skeleton type="QBtn" width="110px" />
-          </div>
-        </div>
-      </div>
-      <!-- Items section skeleton -->
-      <q-skeleton type="text" width="12%" height="24px" class="q-mb-md" />
+        </q-card-section>
+        <q-card-actions class="q-pa-md q-pt-none">
+          <q-skeleton type="QBtn" width="110px" class="q-mr-sm" />
+          <q-skeleton type="QBtn" width="120px" class="q-mr-sm" />
+          <q-skeleton type="QBtn" width="130px" />
+        </q-card-actions>
+      </q-card>
+      <!-- Items skeleton -->
+      <q-skeleton type="text" width="12%" height="22px" class="q-mb-sm" />
       <q-skeleton type="QInput" class="q-mb-md" />
-      <q-list bordered separator>
-        <q-item v-for="i in 4" :key="i">
-          <q-item-section>
-            <q-skeleton type="text" width="38%" height="16px" />
-            <q-skeleton type="text" width="62%" class="q-mt-xs" />
-            <q-skeleton type="text" width="30%" class="q-mt-xs" />
-          </q-item-section>
-          <q-item-section side>
-            <div class="row q-gutter-x-sm">
+      <div class="q-gutter-y-sm">
+        <q-card v-for="i in 3" :key="i" flat bordered>
+          <q-card-section class="row items-start no-wrap q-pa-md">
+            <div class="col">
+              <q-skeleton type="text" width="38%" height="16px" />
+              <q-skeleton type="text" width="62%" class="q-mt-xs" />
+              <q-skeleton type="text" width="30%" class="q-mt-xs" />
+            </div>
+            <div class="row q-gutter-x-sm q-ml-sm">
               <q-skeleton type="circle" size="32px" />
               <q-skeleton type="circle" size="32px" />
             </div>
-          </q-item-section>
-        </q-item>
-      </q-list>
+          </q-card-section>
+        </q-card>
+      </div>
     </div>
 
+    <!-- Access denied -->
     <div v-else-if="pageState === 'forbidden'" class="q-pa-md">
       <q-banner rounded class="bg-orange-1 text-orange-10">
         <template #avatar>
@@ -50,6 +52,7 @@
       </q-banner>
     </div>
 
+    <!-- Not found -->
     <div v-else-if="pageState === 'not_found'" class="q-pa-md">
       <q-banner rounded class="bg-grey-2 text-grey-9">
         <template #avatar>
@@ -59,6 +62,7 @@
       </q-banner>
     </div>
 
+    <!-- Load error -->
     <div v-else-if="!box" class="q-pa-md">
       <q-banner rounded class="bg-red-1 text-red-10">
         <template #avatar>
@@ -68,61 +72,123 @@
       </q-banner>
     </div>
 
+    <!-- Main content -->
     <div v-else>
-      <div class="row q-pa-md">
-        <div class="col-12 col-md-8">
-          <div v-if="!isEditing">
-            <div class="q-mb-md">
-              <div class="text-h6">{{ box.name }}</div>
-              <div>{{ box.description }}</div>
-              <div class="text-caption">Access Level: {{ box.access_level }}</div>
-              <div class="text-caption">Tags: {{ formatTags(box.tags) }}</div>
-              <div class="text-caption">
-                Created: {{ formatDate(box.created_at || box.created_time) }}
-              </div>
-              <div class="text-caption">
-                Last updated: {{ formatDate(box.updated_at || box.date_updated) }}
-              </div>
+      <!-- Breadcrumb -->
+      <div class="row items-center text-caption text-grey-6 q-mb-md">
+        <router-link to="/boxes" class="text-grey-6 no-underline-link">Boxes</router-link>
+        <q-icon name="chevron_right" size="14px" class="q-mx-xs" />
+        <span>{{ box.name }}</span>
+      </div>
+
+      <!-- Box header card (view mode) -->
+      <q-card v-if="!isEditing" flat bordered class="q-mb-md">
+        <q-card-section class="row items-start no-wrap q-pa-md">
+          <q-icon name="archive" size="44px" color="grey-5" class="q-mr-md flex-shrink-0 q-mt-xs" />
+          <div class="col overflow-hidden">
+            <div class="row items-center q-mb-xs">
+              <h1 class="text-h6 text-weight-medium q-ma-none q-mr-sm">{{ box.name }}</h1>
+              <q-chip dense size="sm" :icon="box.access_level === 'private' ? 'lock' : 'language'" color="grey-2" text-color="grey-7">
+                {{ box.access_level === 'private' ? 'Private' : 'Public' }}
+              </q-chip>
             </div>
-            <div class="q-pa-md q-gutter-sm">
-              <q-btn color="primary" icon="edit" label="Edit Details" @click="startEditingBox" />
-              <q-btn
-                label="View QR Code"
-                icon="qr_code"
-                @click="showQRCodeDialog"
-                color="primary"
-              />
-              <q-btn color="primary" icon="add" label="Add Item" @click="showAddItemDialog" />
+            <p v-if="box.description" class="text-body2 text-grey-8 q-mb-sm q-mt-none">
+              {{ box.description }}
+            </p>
+            <div class="row items-center q-gutter-x-xs q-mb-sm">
+              <template v-if="normalizeTags(box.tags).length">
+                <q-chip
+                  v-for="tag in normalizeTags(box.tags)"
+                  :key="tag"
+                  dense
+                  size="sm"
+                  color="grey-2"
+                  text-color="grey-8"
+                  icon="label"
+                  class="q-ma-none"
+                >{{ tag }}</q-chip>
+              </template>
+              <span v-else class="text-caption text-grey-5">Untagged</span>
+            </div>
+            <div class="row items-center q-gutter-x-md text-caption text-grey-6">
+              <div class="row items-center">
+                <q-icon name="event" size="12px" class="q-mr-xs" />
+                Created {{ formatDate(box.created_at || box.created_time) }}
+              </div>
+              <div v-if="box.updated_at || box.date_updated" class="row items-center">
+                <q-icon name="event" size="12px" class="q-mr-xs" />
+                Updated {{ formatDate(box.updated_at || box.date_updated) }}
+              </div>
             </div>
           </div>
+        </q-card-section>
 
-          <q-form v-else @submit.prevent="updateBox" class="q-gutter-md">
+        <q-separator />
+
+        <q-card-actions class="q-pa-md q-gutter-sm">
+          <q-btn color="primary" icon="add" label="Add item" unelevated @click="showAddItemDialog" />
+          <q-btn outline color="primary" icon="edit" label="Edit details" @click="startEditingBox" />
+          <q-btn outline color="primary" icon="qr_code" label="View QR code" @click="showQRCodeDialog" />
+        </q-card-actions>
+      </q-card>
+
+      <!-- Edit box form -->
+      <q-card v-else flat bordered class="q-mb-md">
+        <q-card-section>
+          <div class="text-subtitle1 text-weight-medium q-mb-md">Edit box</div>
+          <q-form @submit.prevent="updateBox" class="q-gutter-y-md">
             <q-input v-model="boxDraft.name" label="Name" filled />
-            <q-input v-model="boxDraft.description" label="Description" type="textarea" filled />
-            <q-select
-              v-model="boxDraft.access_level"
-              :options="['private', 'public']"
-              label="Access Level"
-              filled
-            />
+            <q-input v-model="boxDraft.description" label="Description" type="textarea" filled autogrow />
+            <div>
+              <div class="text-caption text-grey-7 q-mb-sm">Access level</div>
+              <div class="row q-col-gutter-sm">
+                <div class="col-6">
+                  <div
+                    class="access-option cursor-pointer rounded-borders q-pa-md"
+                    :class="boxDraft.access_level === 'private' ? 'access-option--active' : 'access-option--inactive'"
+                    @click="boxDraft.access_level = 'private'"
+                  >
+                    <q-icon name="lock" size="20px" class="q-mb-xs" />
+                    <div class="text-subtitle2">Private</div>
+                    <div class="text-caption text-grey-6">Only you</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div
+                    class="access-option cursor-pointer rounded-borders q-pa-md"
+                    :class="boxDraft.access_level === 'public' ? 'access-option--active' : 'access-option--inactive'"
+                    @click="boxDraft.access_level = 'public'"
+                  >
+                    <q-icon name="language" size="20px" class="q-mb-xs" />
+                    <div class="text-subtitle2">Public</div>
+                    <div class="text-caption text-grey-6">Anyone with an account</div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <q-input
               v-model="boxDraft.tags"
               label="Tags (comma-separated)"
               filled
               hint="Example: fragile, winter, donation"
             />
-
-            <q-btn type="submit" color="primary" label="Save Changes" class="q-mt-md" />
-            <q-btn color="grey-7" label="Cancel" @click="cancelEdit" class="q-mt-md" />
+            <div class="row q-gutter-sm">
+              <q-btn type="submit" color="primary" label="Save changes" unelevated />
+              <q-btn flat color="grey-7" label="Cancel" @click="cancelEdit" />
+            </div>
           </q-form>
-        </div>
-      </div>
+        </q-card-section>
+      </q-card>
 
       <AddItemDialog :boxId="box.id" ref="addItemDialog" @item-added="fetchItems" />
       <QRCodeDialog ref="qrCodeDialog" :box="box" />
 
+      <!-- Items section -->
       <div class="q-mt-lg">
-        <h3 class="text-h6">Items</h3>
+        <div class="row items-center q-mb-md">
+          <h2 class="text-subtitle1 text-weight-medium q-ma-none col">Items</h2>
+          <span class="text-caption text-grey-6">{{ items.length }} in this box</span>
+        </div>
 
         <q-input
           v-model="itemSearch"
@@ -137,57 +203,67 @@
           </template>
         </q-input>
 
-        <div v-if="items.length === 0" class="text-center q-pa-md">
-          <p class="text-grey-7">No items found for this box.</p>
+        <div v-if="items.length === 0" class="text-center q-pa-xl text-grey-6">
+          No items found in this box.
         </div>
 
-        <q-list v-else bordered separator>
-          <q-item v-for="item in items" :key="item.id">
-            <q-item-section>
-              <q-item-label>{{ item.name }}</q-item-label>
-              <q-item-label caption>{{ item.description }}</q-item-label>
-              <q-item-label caption>Tags: {{ formatTags(item.tags) }}</q-item-label>
-              <q-item-label caption>
-                Created: {{ formatDate(item.created_at || item.created_time) }}
-              </q-item-label>
-              <q-item-label caption>
-                Updated: {{ formatDate(item.updated_at || item.date_updated) }}
-              </q-item-label>
-            </q-item-section>
-            <q-item-section side>
-              <div class="row justify-right">
-                <q-btn
-                  flat
-                  round
-                  dense
-                  color="primary"
-                  icon="edit"
-                  @click.stop="openEditItemDialog(item)"
-                  class="q-mr-sm"
-                />
-                <q-btn
-                  flat
-                  round
-                  dense
-                  color="negative"
-                  icon="delete"
-                  @click.stop="confirmItemDelete(item.id)"
-                />
+        <div v-else class="q-gutter-y-sm">
+          <q-card v-for="item in items" :key="item.id" flat bordered>
+            <q-card-section class="row items-start no-wrap q-pa-md">
+              <div class="col overflow-hidden">
+                <div class="text-subtitle2 text-weight-medium q-mb-xs">{{ item.name }}</div>
+                <div v-if="item.description" class="text-body2 text-grey-8 bb-clamp2 q-mb-xs">
+                  {{ item.description }}
+                </div>
+                <div class="row items-center q-gutter-x-xs q-mb-xs">
+                  <template v-if="normalizeTags(item.tags).length">
+                    <q-chip
+                      v-for="tag in normalizeTags(item.tags)"
+                      :key="tag"
+                      dense
+                      size="sm"
+                      color="grey-2"
+                      text-color="grey-8"
+                      icon="label"
+                      class="q-ma-none"
+                    >{{ tag }}</q-chip>
+                  </template>
+                  <span v-else class="text-caption text-grey-5">Untagged</span>
+                </div>
+                <div class="row items-center text-caption text-grey-6">
+                  <q-icon name="event" size="12px" class="q-mr-xs" />
+                  <span v-if="item.updated_at || item.date_updated">
+                    Updated {{ formatDate(item.updated_at || item.date_updated) }}
+                  </span>
+                  <span v-else>
+                    Created {{ formatDate(item.created_at || item.created_time) }}
+                  </span>
+                </div>
               </div>
-            </q-item-section>
-          </q-item>
-        </q-list>
+              <div class="row items-start q-gutter-x-xs q-ml-sm flex-shrink-0">
+                <q-btn flat round dense icon="edit" color="grey-6" @click.stop="openEditItemDialog(item)">
+                  <q-tooltip>Edit</q-tooltip>
+                </q-btn>
+                <q-btn flat round dense icon="delete" color="grey-6" @click.stop="confirmItemDelete(item.id)">
+                  <q-tooltip>Delete</q-tooltip>
+                </q-btn>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
       </div>
 
+      <!-- Edit item dialog -->
       <q-dialog v-model="editItemDialog" persistent>
-        <q-card class="q-pa-md" style="min-width: 400px; max-width: 80vw">
-          <q-card-section class="row items-center">
-            <q-avatar icon="edit" color="primary" text-color="white" />
-            <span class="q-ml-sm">Edit Item</span>
+        <q-card style="min-width: 400px; max-width: 80vw">
+          <q-card-section class="row items-center q-pb-sm">
+            <div class="text-h6 col">Edit item</div>
+            <q-btn flat round dense icon="close" v-close-popup />
           </q-card-section>
-          <q-card-section>
+          <q-separator />
+          <q-card-section class="q-gutter-y-md">
             <q-input v-model="itemToEdit.name" label="Name" filled />
-            <q-input v-model="itemToEdit.description" label="Description" type="textarea" filled />
+            <q-input v-model="itemToEdit.description" label="Description" type="textarea" filled autogrow />
             <q-input
               v-model="itemToEdit.tags"
               label="Tags (comma-separated)"
@@ -195,23 +271,24 @@
               hint="Example: kitchen, fragile"
             />
           </q-card-section>
-          <q-card-actions align="right">
-            <q-btn flat label="Cancel" color="primary" v-close-popup />
-            <q-btn flat label="Save" color="primary" @click="saveItem" />
+          <q-separator />
+          <q-card-actions align="right" class="q-pa-md">
+            <q-btn flat label="Cancel" v-close-popup />
+            <q-btn color="primary" label="Save" unelevated @click="saveItem" />
           </q-card-actions>
         </q-card>
       </q-dialog>
 
+      <!-- Delete item dialog -->
       <q-dialog v-model="deleteDialog" persistent>
         <q-card>
           <q-card-section class="row items-center">
             <q-avatar icon="warning" color="negative" text-color="white" />
-            <span class="q-ml-sm">Are you sure you want to delete this item?</span>
+            <span class="q-ml-sm">Delete this item?</span>
           </q-card-section>
-
           <q-card-actions align="right">
-            <q-btn flat label="Cancel" color="primary" v-close-popup />
-            <q-btn flat label="Delete" color="negative" @click="deleteItem" />
+            <q-btn flat label="Cancel" v-close-popup />
+            <q-btn color="negative" label="Delete" unelevated @click="deleteItem" />
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -248,24 +325,19 @@ const deleteDialog = ref(false)
 const itemToDelete = ref(null)
 
 const normalizeTags = (tags) => {
-  if (Array.isArray(tags)) return tags
-  if (typeof tags === 'string') {
-    return tags
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean)
-  }
+  if (Array.isArray(tags)) return tags.filter(Boolean)
+  if (typeof tags === 'string') return tags.split(',').map((t) => t.trim()).filter(Boolean)
   return []
 }
 
 const formatTags = (tags) => {
   const values = normalizeTags(tags)
-  return values.length ? values.join(', ') : 'None'
+  return values.length ? values.join(', ') : ''
 }
 
 const formatDate = (value) => {
   if (!value) return '—'
-  return new Date(value).toLocaleString()
+  return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 const showAddItemDialog = () => {
@@ -280,8 +352,8 @@ const startEditingBox = () => {
   boxDraft.value = {
     name: box.value.name,
     description: box.value.description,
-    access_level: box.value.access_level,
-    tags: formatTags(box.value.tags) === 'None' ? '' : formatTags(box.value.tags),
+    access_level: box.value.access_level || 'private',
+    tags: formatTags(box.value.tags),
   }
   isEditing.value = true
 }
@@ -292,10 +364,7 @@ const fetchItems = async () => {
 }
 
 const handleItemSearch = () => {
-  if (itemSearchDebounce) {
-    clearTimeout(itemSearchDebounce)
-  }
-
+  if (itemSearchDebounce) clearTimeout(itemSearchDebounce)
   itemSearchDebounce = setTimeout(async () => {
     await fetchItems()
   }, 250)
@@ -354,7 +423,7 @@ const openEditItemDialog = (item) => {
     id: item.id,
     name: item.name,
     description: item.description,
-    tags: formatTags(item.tags) === 'None' ? '' : formatTags(item.tags),
+    tags: formatTags(item.tags),
   }
   editItemDialog.value = true
 }
@@ -399,4 +468,27 @@ onMounted(async () => {
 })
 </script>
 
-<style lang="scss" scoped></style>
+<style scoped>
+.no-underline-link {
+  text-decoration: none;
+}
+.no-underline-link:hover {
+  text-decoration: underline;
+}
+
+.access-option {
+  border: 2px solid transparent;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.access-option--active {
+  border-color: var(--q-primary);
+  background-color: rgba(var(--q-primary-rgb, 25, 118, 210), 0.06);
+}
+.access-option--inactive {
+  border-color: #e0e0e0;
+  background-color: #fafafa;
+}
+.access-option--inactive:hover {
+  border-color: #bdbdbd;
+}
+</style>

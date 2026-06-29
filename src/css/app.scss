@@ -4,3 +4,10 @@
 // #q-app {
 //   padding-top: env(safe-area-inset-top);
 // }
+
+.bb-clamp2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
