@@ -13,6 +13,14 @@ const routes = [
         path: '/settings/billing',
         component: () => import('src/pages/settings/BillingSettingsPage.vue'),
       },
+      {
+        path: '/purchase/success',
+        component: () => import('src/pages/PurchaseResultPage.vue'),
+      },
+      {
+        path: '/purchase/cancel',
+        component: () => import('src/pages/PurchaseResultPage.vue'),
+      },
     ],
     meta: { requiresAuth: true },
   },

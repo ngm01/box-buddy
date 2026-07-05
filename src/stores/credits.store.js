@@ -1,20 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { useAuthStore } from './auth.store'
 import { supabase } from 'src/utils/supabase'
-
-const API_BASE = (process.env.API_BASE || 'https://api.boxbuddy.io').replace(/\/$/, '')
+import { purchasePack as launchPurchase } from 'src/services/payments.service'
 
 export const useCreditsStore = defineStore('credits', () => {
-  const authStore = useAuthStore()
-
   const balance = ref(null)
   const transactions = ref([])
   const loading = ref(false)
-
-  const authHeader = () => ({
-    Authorization: `Bearer ${authStore.token || ''}`,
-  })
 
   // Getters
   const hasCredits = computed(() => (n) => balance.value !== null && balance.value >= n)
@@ -57,23 +49,36 @@ export const useCreditsStore = defineStore('credits', () => {
     balance.value = newBalance
   }
 
-  const purchasePack = async (packId) => {
-    const res = await fetch(`${API_BASE}/payments/checkout`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ packId }),
-    })
-    if (!res.ok) throw new Error(`Failed to purchase pack: ${res.status}`)
-    const data = await res.json()
+  // Credits are granted server-side by payment webhooks, never by the client.
+  // After a native purchase (or on return from Stripe Checkout) the grant
+  // lands ~1-2s later, so we poll the balance until it increases.
+  const pollForCreditGrant = async ({ attempts = 8, intervalMs = 1500 } = {}) => {
+    const before = balance.value ?? 0
+    for (let i = 0; i < attempts; i++) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      await fetchBalance()
+      if ((balance.value ?? 0) > before) {
+        return { confirmed: true, balance: balance.value }
+      }
+    }
+    return { confirmed: false, balance: balance.value }
+  }
 
-    if (data.stubbed) {
-      updateBalance(data.balance)
-    } else if (data.url) {
-      window.location.href = data.url
+  const purchasePack = async (packId) => {
+    const result = await launchPurchase(packId)
+
+    if (result.status === 'purchased') {
+      const { balance: newBalance } = await pollForCreditGrant()
+      return { status: 'purchased', balance: newBalance }
     }
 
-    return data
+    // 'redirect' (page is navigating to Stripe Checkout) or 'cancelled'
+    return result
   }
+
+  // Called by the /purchase/success page. The session_id query param is
+  // informational only — the Stripe webhook is the source of truth.
+  const confirmStripeReturn = async () => pollForCreditGrant()
 
   const reset = () => {
     balance.value = null
@@ -93,6 +98,8 @@ export const useCreditsStore = defineStore('credits', () => {
     fetchHistory,
     updateBalance,
     purchasePack,
+    pollForCreditGrant,
+    confirmStripeReturn,
     reset,
   }
 })

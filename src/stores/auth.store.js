@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from 'src/utils/supabase'
+import { initPayments, teardownPayments } from 'src/services/payments.service'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -11,9 +12,18 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Keep store in sync whenever Supabase auth state changes
   // (login, logout, token refresh, tab focus, etc.)
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
     user.value = session?.user ?? null
     accessToken.value = session?.access_token ?? null
+
+    // RevenueCat must be identified as the Supabase user id (the credit
+    // webhook's join key) only once a session actually exists — never on
+    // bare app load. initPayments is idempotent across repeat events.
+    if (session?.user) {
+      initPayments(session.user).catch((err) => console.error('Payments init failed:', err))
+    } else if (event === 'SIGNED_OUT') {
+      teardownPayments().catch((err) => console.error('Payments teardown failed:', err))
+    }
   })
 
   // Hydrates the store from the persisted Supabase session and
