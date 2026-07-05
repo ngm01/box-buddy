@@ -72,7 +72,6 @@ const login = async () => {
   $q.loading.show()
 
   try {
-    console.log('Attempting login with:', email.value)
     await authStore.login(email.value, password.value)
     const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     router.push(redirectTo)
