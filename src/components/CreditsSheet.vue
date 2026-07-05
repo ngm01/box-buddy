@@ -78,12 +78,13 @@
                 </div>
                 <div class="text-caption text-grey-6">~{{ pack.photos }} photos</div>
               </div>
-              <div class="text-body1 text-weight-bold">${{ pack.price }}</div>
+              <div class="text-body1 text-weight-bold">{{ displayPrice(pack) }}</div>
             </q-card-section>
+            <q-inner-loading :showing="purchasingId === pack.id" />
           </q-card>
         </div>
 
-        <div class="text-center">
+        <div v-if="!isNative" class="text-center">
           <a href="mailto:hello@boxbuddy.io" class="text-caption text-grey-6">
             Need a custom plan? Contact us
           </a>
@@ -98,6 +99,7 @@ import { ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useCreditsStore } from 'src/stores/credits.store'
 import { CREDIT_PACKS, REASON_LABELS } from 'src/constants/credits'
+import { isNativePayments, getNativePackPrices } from 'src/services/payments.service'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -115,6 +117,10 @@ const isOpen = computed({
   set: (val) => emit('update:isOpen', val),
 })
 
+const purchasingId = ref(null)
+const isNative = isNativePayments()
+const nativePrices = ref(null)
+
 const onOpen = async () => {
   loading.value = true
   try {
@@ -122,7 +128,13 @@ const onOpen = async () => {
   } finally {
     loading.value = false
   }
+  if (!nativePrices.value) {
+    nativePrices.value = await getNativePackPrices(CREDIT_PACKS.map((p) => p.id))
+  }
 }
+
+// StoreKit/Play localized price wins on native; constants are the web display.
+const displayPrice = (pack) => nativePrices.value?.[pack.id] || `$${pack.price}`
 
 const reasonLabel = (reason) => REASON_LABELS[reason] || reason
 
@@ -132,14 +144,23 @@ const formatDate = (iso) => {
 }
 
 const handlePurchase = async (packId) => {
+  if (purchasingId.value) return
+  purchasingId.value = packId
+  let redirecting = false
   try {
     const result = await creditsStore.purchasePack(packId)
-    if (result.stubbed) {
+    if (result.status === 'purchased') {
       $q.notify({ type: 'positive', message: `Credits added! New balance: ${result.balance}` })
+    } else if (result.status === 'redirect') {
+      // Page is navigating to Stripe Checkout — keep the spinner until unload.
+      redirecting = true
     }
+    // 'cancelled': user backed out of the payment sheet — not an error.
   } catch (err) {
     console.error('Purchase failed:', err)
     $q.notify({ type: 'negative', message: 'Purchase failed. Please try again.' })
+  } finally {
+    if (!redirecting) purchasingId.value = null
   }
 }
 </script>
@@ -167,6 +188,7 @@ const handlePurchase = async (packId) => {
 .pack-card {
   cursor: pointer;
   transition: background 0.15s;
+  position: relative;
 }
 
 .pack-card:hover {

@@ -180,7 +180,7 @@
         </q-card-section>
       </q-card>
 
-      <AddItemDialog :boxId="box.id" ref="addItemDialog" @item-added="fetchItems" />
+      <AddItemDialog :boxId="box.id" :boxName="box.name" ref="addItemDialog" @item-added="fetchItems" />
       <QRCodeDialog ref="qrCodeDialog" :box="box" />
 
       <!-- Items section -->
@@ -381,17 +381,32 @@ const fetchBoxDetails = async () => {
       return
     }
 
-    const { data: boxData, error: boxError } = await supabase
-      .from('boxes')
-      .select('*')
-      .eq('display_name', display_name)
-      .eq('name', box_name)
-      .single()
+    const { data: accessData, error: accessError } = await supabase.rpc('get_box_access_status', {
+      p_display_name: display_name,
+      p_box_name: box_name,
+    })
 
-    if (boxError) {
+    if (accessError) throw accessError
+
+    const access = Array.isArray(accessData) ? accessData[0] : accessData
+
+    if (!access || access.status_code === 404) {
       pageState.value = 'not_found'
       return
     }
+
+    if (access.status_code === 403) {
+      pageState.value = 'forbidden'
+      return
+    }
+
+    const { data: boxData, error: boxError } = await supabase
+      .from('boxes')
+      .select('*')
+      .eq('id', access.box_id)
+      .single()
+
+    if (boxError) throw boxError
 
     box.value = boxData
   } catch (error) {
