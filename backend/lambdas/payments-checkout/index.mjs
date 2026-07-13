@@ -5,7 +5,9 @@
 // Env vars:
 //   STRIPE_SECRET_KEY          sk_... (test or live)
 //   SUPABASE_URL               https://<project>.supabase.co
-//   SUPABASE_SERVICE_ROLE_KEY  service role key (JWT verification only here)
+//   SUPABASE_ANON_KEY          anon (publishable) key — only used to verify the
+//                              caller's JWT via auth.getUser(); this function
+//                              needs no elevated Supabase access
 //   WEB_APP_URL                e.g. https://boxbuddy.io (success/cancel redirect target)
 //   STRIPE_PRICE_CREDITS_50    price_... for the $4.99 pack
 //   STRIPE_PRICE_CREDITS_200   price_... for the $14.99 pack
@@ -15,7 +17,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+const supabaseAuth = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
 
@@ -37,7 +39,7 @@ export const handler = async (event) => {
   const token = authHeader.replace(/^Bearer\s+/i, '')
   if (!token) return response(401, { error: 'Missing bearer token' })
 
-  const { data, error } = await supabaseAdmin.auth.getUser(token)
+  const { data, error } = await supabaseAuth.auth.getUser(token)
   if (error || !data?.user) return response(401, { error: 'Invalid token' })
   const userId = data.user.id
 

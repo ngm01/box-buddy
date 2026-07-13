@@ -1,5 +1,9 @@
 # Payment Lambdas (manual AWS deploy)
 
+> New here? Read `docs/payments-flow.md` first — it maps the end-to-end
+> purchase flows (Stripe web, RevenueCat iOS), which identifier lives where,
+> and the setup order. This file covers deploy mechanics only.
+
 Deliverable source for the `api.boxbuddy.io` payment routes. Like the SQL in
 `../Supabase/migrations/`, these are deployed **manually** (AWS Console), not
 by CI. Each function is standalone — the small credit-grant RPC call is
@@ -32,8 +36,14 @@ appearing.
 
 Each `index.mjs` header lists its exact env vars. Summary:
 
-- All three: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (never expose this key to the frontend)
-- `payments-checkout`: `STRIPE_SECRET_KEY`, `WEB_APP_URL`, `STRIPE_PRICE_CREDITS_50/200/600`
+- All three: `SUPABASE_URL`
+- Both webhooks: `SUPABASE_SERVICE_ROLE_KEY` (required to call the grant RPC;
+  never expose this key to the frontend, and don't set it on functions that
+  don't need it)
+- `payments-checkout`: `SUPABASE_ANON_KEY` (JWT verification only — deliberately
+  **not** the service role key, to keep this internet-facing function
+  least-privileged), `STRIPE_SECRET_KEY`, `WEB_APP_URL`,
+  `STRIPE_PRICE_CREDITS_50/200/600`
 - `webhook-stripe`: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
 - `webhook-revenuecat`: `REVENUECAT_WEBHOOK_AUTH_TOKEN`
 
