@@ -17,14 +17,18 @@ Background reading: `docs/payments-flow.md` (what talks to what and why).
       (commit `dfc9106`).
 - [x] **T2 [Claude]** `payments-checkout` switched from service role key to
       anon key (least privilege). _Done in working tree — needs commit._
-- [ ] **T3 [Claude]** Commit the working-tree changes (anon-key switch, README,
+- [x] **T3 [Claude]** Commit the working-tree changes (anon-key switch, README,
       docs) to `feat/payments-architecture` and open/update the PR to `main`.
-- [ ] **T4 [Claude]** Build the three Lambda deploy zips: in each
+      _PR #33._
+- [x] **T4 [Claude]** Build the three Lambda deploy zips: in each
       `backend/lambdas/<fn>/` folder, `npm install` its deps
       (`stripe` + `@supabase/supabase-js` for the two Stripe ones,
       `@supabase/supabase-js` only for `webhook-revenuecat`), then zip
       `index.mjs` + `node_modules/` + `package.json`. Output one zip per
       function, ready for console upload.
+      _Zips at `backend/lambdas/<fn>.zip` (gitignored) — rebuild with
+      `npm install --omit=dev && zip -r ../<fn>.zip index.mjs package.json
+      package-lock.json node_modules` from inside each folder._
 
 ## Phase 1 — Supabase (shared by dev and prod — there is only one database)
 
@@ -176,5 +180,6 @@ the ASC items early.
 
 ---
 
-**Current status:** Phase 0 in progress (T3–T4 open). Nothing in Phases 1–3 is
-believed deployed yet — check off anything already done as you find it.
+**Current status:** Phase 0 complete. Next up: T5–T7 (Supabase), then Stripe
+test mode. Nothing in Phases 1–3 is believed deployed yet — check off anything
+already done as you find it.

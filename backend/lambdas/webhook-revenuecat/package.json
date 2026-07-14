@@ -1,0 +1,9 @@
+{
+  "name": "webhook-revenuecat",
+  "private": true,
+  "type": "module",
+  "description": "POST /webhooks/revenuecat — grants credits after a native in-app purchase",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
