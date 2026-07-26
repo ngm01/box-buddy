@@ -28,39 +28,35 @@ Background reading: `docs/payments-flow.md` (what talks to what and why).
       function, ready for console upload.
       _Zips at `backend/lambdas/<fn>.zip` (gitignored) — rebuild with
       `npm install --omit=dev && zip -r ../<fn>.zip index.mjs package.json
-      package-lock.json node_modules` from inside each folder._
+package-lock.json node_modules` from inside each folder._
 
 ## Phase 1 — Supabase (shared by dev and prod — there is only one database)
 
-- [ ] **T5 [You: Supabase]** Apply the grant migration: Supabase Dashboard →
+- [x] **T5 [You: Supabase]** Apply the grant migration: Supabase Dashboard →
       your project → **SQL Editor** → paste the full contents of
       `backend/Supabase/migrations/202607050001_purchase_credit_grant.sql` →
       **Run**. Expect "Success. No rows returned".
-- [ ] **T6 [You: Supabase]** Verify it took: in SQL Editor run
+- [x] **T6 [You: Supabase]** Verify it took: in SQL Editor run
       `select proname from pg_proc where proname = 'grant_purchased_credits';`
       → should return one row.
-- [ ] **T7 [You: Supabase]** Collect three values for later (Project Settings →
+- [x] **T7 [You: Supabase]** Collect three values for later (Project Settings →
       **API**): the **Project URL** (`https://<ref>.supabase.co`), the
       **anon/publishable key**, and the **service_role key**. Keep the
       service_role one out of any file that gets committed.
 
 ## Phase 2 — Stripe, test mode
 
-- [ ] **T8 [You: Stripe]** Make sure the dashboard is in the **test**
+- [x] **T8 [You: Stripe]** Make sure the dashboard is in the **test**
       environment: either the "Test mode" toggle (top-right) is ON, or you're
       inside a Sandbox. Your visible secret key must start with `sk_test_`.
-- [ ] **T9 [You: Stripe]** Copy the test **Secret key**: **Developers → API
+- [x] **T9 [You: Stripe]** Copy the test **Secret key**: **Developers → API
       keys → Secret key → Reveal**. (One key — you do not create any.)
-- [ ] **T10 [You: Stripe]** Create the three products (**Product catalog →
-      + Add product**), each with a **One-off** price in USD:
-      - "50 Credits" — $4.99
-      - "200 Credits" — $14.99
-      - "600 Credits" — $34.99
-        Names are cosmetic; do NOT try to enter `credits_50` anywhere.
-- [ ] **T11 [You: Stripe]** For each product, open it and copy the generated
+- [x] **T10 [You: Stripe]** Create the three products (**Product catalog → + Add product**), each with a **One-off** price in USD: - "50 Credits" — $4.99 - "200 Credits" — $14.99 - "600 Credits" — $34.99
+      Names are cosmetic; do NOT try to enter `credits_50` anywhere.
+- [x] **T11 [You: Stripe]** For each product, open it and copy the generated
       **Price ID** (`price_...` — the API ID next to the price, not the
       `prod_...` one). Note which is which: 50 / 200 / 600.
-- [ ] **T12 [You: Stripe]** Create the webhook endpoint: **Developers →
+- [x] **T12 [You: Stripe]** Create the webhook endpoint: **Developers →
       Webhooks → + Add endpoint** → URL `https://api.boxbuddy.io/webhooks/stripe`
       → "Select events" → tick exactly `checkout.session.completed` and
       `checkout.session.async_payment_succeeded` → Add endpoint. Then click the
@@ -68,24 +64,15 @@ Background reading: `docs/payments-flow.md` (what talks to what and why).
 
 ## Phase 3 — AWS: deploy Lambdas + routes (with test-mode values)
 
-- [ ] **T13 [You: AWS]** Create/update Lambda `payments-checkout`: Lambda
+- [x] **T13 [You: AWS]** Create/update Lambda `payments-checkout`: Lambda
       console → Create function (or open existing stub) → Node.js 20.x →
       upload the T4 zip. Handler `index.handler`.
-- [ ] **T14 [You: AWS]** Set `payments-checkout` env vars (Configuration →
-      Environment variables):
-      - `STRIPE_SECRET_KEY` = `sk_test_...` (T9)
-      - `STRIPE_PRICE_CREDITS_50` / `_200` / `_600` = the three `price_...` (T11)
-      - `SUPABASE_URL` = project URL (T7)
-      - `SUPABASE_ANON_KEY` = anon key (T7)
-      - `WEB_APP_URL` = `https://boxbuddy.io`
-        If the old stub had `SUPABASE_SERVICE_ROLE_KEY` set, **delete it** —
-        the function no longer uses it and it shouldn't hold it.
-- [ ] **T15 [You: AWS]** Create Lambda `webhook-stripe` (Node.js 20.x, T4 zip)
-      with env vars:
-      - `STRIPE_SECRET_KEY` = `sk_test_...` (T9)
-      - `STRIPE_WEBHOOK_SECRET` = `whsec_...` (T12)
-      - `SUPABASE_URL` (T7)
-      - `SUPABASE_SERVICE_ROLE_KEY` (T7)
+- [x] **T14 [You: AWS]** Set `payments-checkout` env vars (Configuration →
+      Environment variables): - `STRIPE_SECRET_KEY` = `sk_test_...` (T9) - `STRIPE_PRICE_CREDITS_50` / `_200` / `_600` = the three `price_...` (T11) - `SUPABASE_URL` = project URL (T7) - `SUPABASE_ANON_KEY` = anon key (T7) - `WEB_APP_URL` = `https://boxbuddy.io`
+      If the old stub had `SUPABASE_SERVICE_ROLE_KEY` set, **delete it** —
+      the function no longer uses it and it shouldn't hold it.
+- [x] **T15 [You: AWS]** Create Lambda `webhook-stripe` (Node.js 20.x, T4 zip)
+      with env vars: - `STRIPE_SECRET_KEY` = `sk_test_...` (T9) - `STRIPE_WEBHOOK_SECRET` = `whsec_...` (T12) - `SUPABASE_URL` (T7) - `SUPABASE_SERVICE_ROLE_KEY` (T7)
 - [ ] **T16 [You: AWS]** Create Lambda `webhook-revenuecat` (Node.js 20.x, T4
       zip). Env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (T7), and
       `REVENUECAT_WEBHOOK_AUTH_TOKEN` = invent a long random string now, in the
@@ -112,11 +99,8 @@ Background reading: `docs/payments-flow.md` (what talks to what and why).
 - [ ] **T21 [You]** Confirm: redirected to the purchase-success page, and your
       credit balance goes up within a few seconds.
 - [ ] **T22 [You: Stripe/AWS]** If credits didn't appear, debug in this order
-      (details in `docs/payments-flow.md` § Debugging):
-      1. Stripe → Developers → Webhooks → the endpoint → recent deliveries
-         (was it sent? what HTTP status came back?)
-      2. CloudWatch → `/aws/lambda/webhook-stripe` logs
-      3. Supabase → Table Editor → `credit_transactions`
+      (details in `docs/payments-flow.md` § Debugging): 1. Stripe → Developers → Webhooks → the endpoint → recent deliveries
+      (was it sent? what HTTP status came back?) 2. CloudWatch → `/aws/lambda/webhook-stripe` logs 3. Supabase → Table Editor → `credit_transactions`
 - [ ] **T23 [You]** Buy a second pack and confirm the ledger shows two separate
       `purchase` rows in `credit_transactions` (idempotency sanity check: two
       purchases = two rows, not one).
@@ -160,11 +144,9 @@ the ASC items early.
       T10–T12 there: same 3 products → 3 new live `price_...` ids; same
       webhook endpoint URL + events → new live `whsec_...`. Copy the live
       **Secret key** (`sk_live_...`).
-- [ ] **T33 [You: AWS]** Swap exactly five env values (no code changes):
-      - `payments-checkout`: `STRIPE_SECRET_KEY` → `sk_live_...`, three
-        `STRIPE_PRICE_CREDITS_*` → live price ids
-      - `webhook-stripe`: `STRIPE_SECRET_KEY` → `sk_live_...`,
-        `STRIPE_WEBHOOK_SECRET` → live `whsec_...`
+- [ ] **T33 [You: AWS]** Swap exactly five env values (no code changes): - `payments-checkout`: `STRIPE_SECRET_KEY` → `sk_live_...`, three
+      `STRIPE_PRICE_CREDITS_*` → live price ids - `webhook-stripe`: `STRIPE_SECRET_KEY` → `sk_live_...`,
+      `STRIPE_WEBHOOK_SECRET` → live `whsec_...`
 - [ ] **T34 [You]** Make one real purchase of the $4.99 pack with a real card.
       Confirm credits land and the payment shows in Stripe (live) → Payments.
       (Refund it to yourself from the Stripe dashboard if you like — the
