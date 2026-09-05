@@ -61,7 +61,7 @@ Browser                Lambda: payments-checkout        Stripe              Lamb
    │                            │                          │                         │    credits() RPC     │
    │                            │                          │                         │  (service role key)  │
    │                            │                          │                         │ ────────────────────▶│
-   │ 10. redirect back to /#/purchase/success              │                         │                      │
+   │ 10. redirect back to /purchase/success                │                         │                      │
    │ 11. app polls credit balance ────────────────────────────────────────────────────────────────────────▶│
 ```
 
@@ -90,7 +90,7 @@ Step by step, with the data that moves:
    `grant_purchased_credits()` with the service role key, using
    `stripe:<payment_intent_id>` as the idempotency reference. Duplicate
    deliveries are no-ops.
-10. Meanwhile Stripe redirects the browser to `/#/purchase/success` — a purely
+10. Meanwhile Stripe redirects the browser to `/purchase/success` — a purely
     cosmetic page. Credits may land a second or two after it renders.
 11. The app re-fetches the balance from Supabase and the new credits appear.
 

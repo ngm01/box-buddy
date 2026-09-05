@@ -25,6 +25,10 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/__tmp-add-items',
+    component: () => import('pages/__TmpAddItemsPreview.vue'),
+  },
+  {
     path: '/login',
     component: () => import('pages/LoginPage.vue'),
   },

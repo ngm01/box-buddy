@@ -1,5 +1,11 @@
 const CANONICAL_WEB_BASE_URL = 'https://boxbuddy.io'
 
+// Origins a production build may encode into QR codes. QR codes get printed and
+// stuck on physical boxes, so a misconfigured build must never be able to bake
+// in a dev or preview URL — but the test environment is a deliberate, known
+// destination. Drop the test origin from this list once it is retired.
+const ALLOWED_PROD_BASE_URLS = [CANONICAL_WEB_BASE_URL, 'https://test.boxbuddy.io']
+
 const normalizeBaseUrl = (value) => {
   if (!value) return ''
   const trimmed = String(value).trim()
@@ -42,18 +48,24 @@ const hasExplicitBaseConfig = Boolean(rawWebBaseUrl || rawDomain)
 
 const getCanonicalWebBaseUrl = () => {
   if (isProduction) {
-    if ((rawWebBaseUrl || rawDomain) && resolvedFromWebBase !== CANONICAL_WEB_BASE_URL && resolvedFromDomain !== CANONICAL_WEB_BASE_URL) {
-      logConfigIssue({
-        code: 'PROD_BASE_URL_OVERRIDDEN',
-        message: 'Ignoring WEB_BASE_URL/DOMAIN in production. Using canonical base URL instead.',
-        details: {
-          nodeEnv: process.env.NODE_ENV,
-          rawWebBaseUrl,
-          rawDomain,
-          canonical: CANONICAL_WEB_BASE_URL,
-        },
-      })
-    }
+    const requested = resolvedFromWebBase || resolvedFromDomain
+
+    if (!requested) return CANONICAL_WEB_BASE_URL
+    if (ALLOWED_PROD_BASE_URLS.includes(requested)) return requested
+
+    logConfigIssue({
+      code: 'PROD_BASE_URL_REJECTED',
+      message:
+        'WEB_BASE_URL/DOMAIN is not an approved production origin. Using canonical base URL instead.',
+      details: {
+        nodeEnv: process.env.NODE_ENV,
+        rawWebBaseUrl,
+        rawDomain,
+        requested,
+        allowed: ALLOWED_PROD_BASE_URLS,
+        canonical: CANONICAL_WEB_BASE_URL,
+      },
+    })
 
     return CANONICAL_WEB_BASE_URL
   }

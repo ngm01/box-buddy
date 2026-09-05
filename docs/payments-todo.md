@@ -73,19 +73,19 @@ package-lock.json node_modules` from inside each folder._
       the function no longer uses it and it shouldn't hold it.
 - [x] **T15 [You: AWS]** Create Lambda `webhook-stripe` (Node.js 20.x, T4 zip)
       with env vars: - `STRIPE_SECRET_KEY` = `sk_test_...` (T9) - `STRIPE_WEBHOOK_SECRET` = `whsec_...` (T12) - `SUPABASE_URL` (T7) - `SUPABASE_SERVICE_ROLE_KEY` (T7)
-- [ ] **T16 [You: AWS]** Create Lambda `webhook-revenuecat` (Node.js 20.x, T4
+- [x] **T16 [You: AWS]** Create Lambda `webhook-revenuecat` (Node.js 20.x, T4
       zip). Env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (T7), and
       `REVENUECAT_WEBHOOK_AUTH_TOKEN` = invent a long random string now, in the
       form `Bearer <40+ random chars>` (e.g. from `openssl rand -hex 32`).
       Save that exact string — RevenueCat gets it in T27.
-- [ ] **T17 [You: AWS]** API Gateway (the API serving `api.boxbuddy.io`) →
+- [x] **T17 [You: AWS]** API Gateway (the API serving `api.boxbuddy.io`) →
       **Routes**: confirm `POST /payments/checkout` exists and integrates with
       the `payments-checkout` Lambda; **create** `POST /webhooks/stripe` →
       `webhook-stripe` and `POST /webhooks/revenuecat` → `webhook-revenuecat`.
       On both webhook routes: **no authorizer** (the Lambdas do their own
       auth) and **no body-transforming mapping template** — the Stripe
       signature check needs the raw body byte-for-byte.
-- [ ] **T18 [You: AWS]** Deploy/publish the API stage if your API type
+- [x] **T18 [You: AWS]** Deploy/publish the API stage if your API type
       requires it (REST APIs need an explicit "Deploy API"; HTTP APIs with
       auto-deploy don't).
 

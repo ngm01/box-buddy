@@ -65,9 +65,9 @@ export const handler = async (event) => {
       client_reference_id: userId,
       // Consumed by the Stripe webhook to grant credits — keep in sync there.
       metadata: { user_id: userId, product_id: packId, credits: String(pack.credits) },
-      // The web app uses vue-router hash mode, so routes live behind '#'.
-      success_url: `${webAppUrl}/#/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${webAppUrl}/#/purchase/cancel`,
+      // The web app uses vue-router history mode — plain paths, no '#'.
+      success_url: `${webAppUrl}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${webAppUrl}/purchase/cancel`,
     })
 
     return response(200, { url: session.url })
