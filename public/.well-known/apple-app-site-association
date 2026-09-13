@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appIDs": ["TEAMID.com.boxbuddy.app"],
+        "appIDs": ["6NP9J47X5Y.com.boxbuddy.app"],
         "components": [
           {
             "/": "/boxes/*/*",

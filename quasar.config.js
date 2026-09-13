@@ -3,7 +3,7 @@
 
 import { defineConfig } from '#q-app/wrappers'
 
-export default defineConfig((/* ctx */) => {
+export default defineConfig((ctx) => {
   return {
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
     // preFetch: true,
@@ -37,7 +37,14 @@ export default defineConfig((/* ctx */) => {
         node: 'node20',
       },
 
-      vueRouterMode: 'hash', // available values: 'hash', 'history'
+      // History mode on the web so QR codes can encode clean, scannable URLs
+      // (https://boxbuddy.io/boxes/:display_name/:box_name) that open the box
+      // directly. Requires the host to rewrite unmatched paths to index.html.
+      // Capacitor stays on hash: the native WebView serves from
+      // capacitor://localhost and history mode breaks on reload there. Native
+      // deep links are unaffected either way — App.vue routes them via
+      // router.push(), which works in both modes.
+      vueRouterMode: ctx.mode.capacitor ? 'hash' : 'history',
       // vueRouterBase,
       // vueDevtools,
       // vueOptionsAPI: false,
@@ -98,7 +105,7 @@ export default defineConfig((/* ctx */) => {
       // directives: [],
 
       // Quasar plugins
-      plugins: ['Loading'],
+      plugins: ['Loading', 'Notify', 'Dialog'],
     },
 
     // animations: 'all', // --- includes all animations
