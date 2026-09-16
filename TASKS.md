@@ -5,33 +5,32 @@ where they were checked in the source, not because a doc claimed them._
 
 ## Blockers — can't ship without these
 
-### Credits purchase (web / Stripe)
+### Credits purchase (web / Stripe) — ✅ working end to end in test mode
 
 - [x] Wire Stripe into credits purchase Lambda — real code is deployed as
-      `boxBuddyPaymentsCheckout` and `POST /payments/checkout` now routes to it.
-- [ ] **Raise the checkout Lambda's timeout and memory** — it currently times
-      out at 3s and peaks at 117MB of 128MB, so every purchase returns 500.
-      See `docs/payments-todo.md` T19a.
-- [ ] Confirm the Stripe webhook endpoint URL is
-      `https://api.boxbuddy.io/payments/webhook` (T19b) — the `/webhooks/stripe`
-      route the old docs referenced has no integration and returns 404.
-- [ ] Run the end-to-end purchase test (`docs/payments-todo.md` T20–T23).
+      `boxBuddyPaymentsCheckout` and `POST /payments/checkout` routes to it.
+- [x] Checkout Lambda timeout/memory raised — it was timing out at 3s on 128MB
+      and returning 500 on every purchase.
+- [x] Stripe webhook confirmed on `https://api.boxbuddy.io/payments/webhook`;
+      sandbox purchase grants credits.
+- [ ] T23 only: buy a second pack and confirm **two** distinct `purchase` rows
+      in `credit_transactions` (idempotency sanity check).
 
-### Subscription plans (separate from credits — not started server-side)
+### Usage counts / plan limits
 
-- [ ] `/billing/checkout-session` and `/billing/billing-portal` **do not exist
-      as API Gateway routes**. `src/billing/billing.service.js` calls them, so
-      the paywall's upgrade button and the billing portal both 404 today.
-      Decide whether plan upgrades are in MVP scope at all, given credits are
-      the live monetization path.
-- [ ] Implement `fetchSubscription()` in `subscription.store.js:80` — still an
-      empty async function, so `plan` is always `'free'` and the billing page
-      always shows wrong data.
 - [ ] Call `setUsageCounts()` after fetching boxes/items — never called, so
       `boxCount`/`itemCountTotal` stay 0 and frontend plan limits are never
       enforced (only the backend 402 saves you). Note
       `src/composables/useSubscription.js:21` is a second no-op stub shadowing
-      the real store action.
+      the real store action in `subscription.store.js:82`.
+
+> **Subscriptions are deliberately out of scope.** `fetchSubscription()`
+> (`subscription.store.js:80`) is an empty function and the `/billing/*` routes
+> don't exist in API Gateway, so the paywall's upgrade button and the billing
+> portal 404. That's the documented decision in
+> `docs/archive/TASKS_payments_plan.md`: credit packs only, subscriptions stay
+> stubbed. Either hide those entry points for MVP or accept dead buttons —
+> but it isn't a bug to fix.
 
 ### Unverified
 
@@ -49,6 +48,8 @@ where they were checked in the source, not because a doc claimed them._
 - [ ] Account settings page — no way to change email/password or delete
       account. (`src/pages/settings/` currently holds only
       `BillingSettingsPage.vue`.)
+- [ ] Carried over from the add-items refactor: focus management when the add
+      item modal opens, and keyboard nav through its form fields.
 
 ---
 

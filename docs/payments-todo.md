@@ -123,26 +123,27 @@ package-lock.json node_modules` from inside each folder._
       store UI from `dfc9106`). _Live at `https://dev.boxbuddy.io` (password
       gated) — see `docs/deploy-dev-environment.md`. The apex stays unpointed
       until the coming-soon page ships._
-- [ ] **T19a [You: AWS]** **Blocks T20.** Raise
+- [x] **T19a [You: AWS]** Raise
       `boxBuddyPaymentsCheckout` limits: Configuration → General configuration
       → **Timeout 15s** (currently 3s) and **Memory 512MB** (currently 128MB).
       CloudWatch shows `Status: timeout` at 3000ms with 117MB of 128MB used —
       Stripe SDK init plus two network round-trips can't finish in 3s, and
       Lambda CPU scales with memory, so the low memory is part of the slowness.
       This is what surfaces as `Failed to start checkout: 500`.
-- [ ] **T19b [You: Stripe]** **Blocks T21.** Confirm the T12 endpoint URL is
+- [x] **T19b [You: Stripe]** Confirm the T12 endpoint URL is
       `https://api.boxbuddy.io/payments/webhook`, its events are the two
       listed, and its signing secret matches `STRIPE_WEBHOOK_SECRET` on
       `webhookStripe`. Check **recent deliveries** on the endpoint: a column of
       404s means the wrong URL, 400s mean a stale signing secret.
-- [ ] **T19c [You: AWS]** Set `WEB_APP_URL` on `boxBuddyPaymentsCheckout` to
+- [x] **T19c [You: AWS]** Set `WEB_APP_URL` on `boxBuddyPaymentsCheckout` to
       `https://dev.boxbuddy.io` (currently `https://boxbuddy.io`, which
       resolves nowhere) so the post-payment redirect lands somewhere real.
-- [ ] **T20 [You]** In the live web app, log in as yourself → buy the $4.99
+- [x] **T20 [You]** In the live web app, log in as yourself → buy the $4.99
       pack → on the Stripe page pay with card `4242 4242 4242 4242`, any
       future expiry, any CVC, any name/zip.
-- [ ] **T21 [You]** Confirm: redirected to the purchase-success page, and your
-      credit balance goes up within a few seconds.
+- [x] **T21 [You]** Confirm: redirected to the purchase-success page, and your
+      credit balance goes up within a few seconds. _Confirmed 2026-09-16 —
+      sandbox purchase grants credits._
 - [ ] **T22 [You: Stripe/AWS]** If credits didn't appear, debug in this order
       (details in `docs/payments-flow.md` § Debugging): 1. Stripe → Developers → Webhooks → the endpoint → recent deliveries
       (was it sent? what HTTP status came back?) 2. CloudWatch → `/aws/lambda/webhook-stripe` logs 3. Supabase → Table Editor → `credit_transactions`
@@ -207,15 +208,18 @@ the ASC items early.
 
 ---
 
-**Current status (2026-09-16):** Phases 0–3 are done — Supabase, Stripe test
-mode, all three Lambdas, and the checkout route are deployed and wired. The
-frontend is live on `dev.boxbuddy.io` (T19).
+**Current status (2026-09-16):** **The web purchase flow works end to end in
+test mode** — a sandbox card purchase on `dev.boxbuddy.io` redirects to the
+success page and credits land in the balance. Phases 0–4 are effectively done;
+only **T23** (buy a second pack, confirm two distinct `purchase` rows) is left
+to close Phase 4.
 
-Phase 4 is blocked on three small config fixes, in order: **T19a** (the
-checkout Lambda's 3s timeout — the current cause of
-`Failed to start checkout: 500`), **T19b** (Stripe's webhook endpoint URL, or
-credits silently never arrive), and **T19c** (the post-payment redirect
-target). After those, T20–T23 should run clean.
+Next up is a choice between two tracks:
 
-Phase 5 (iOS) is additionally blocked on `POST /webhooks/revenuecat` having no
-integration — see T17.
+- **Phase 5 (iOS)** — additionally blocked on `POST /webhooks/revenuecat`
+  having no integration and `webhook-revenuecat` having no invoke permission
+  (see T17). Start T24/T25 early regardless; they wait on Apple.
+- **Phase 6 (go-live)** — T31 (Stripe account activation) is the only step
+  with a waiting period, so it's worth starting even if the apex isn't ready.
+  Note go-live also needs the apex pointed at `main` in Amplify and the
+  coming-soon page decision resolved.
