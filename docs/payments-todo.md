@@ -56,18 +56,37 @@ package-lock.json node_modules` from inside each folder._
 - [x] **T11 [You: Stripe]** For each product, open it and copy the generated
       **Price ID** (`price_...` — the API ID next to the price, not the
       `prod_...` one). Note which is which: 50 / 200 / 600.
-- [x] **T12 [You: Stripe]** Create the webhook endpoint: **Developers →
-      Webhooks → + Add endpoint** → URL `https://api.boxbuddy.io/webhooks/stripe`
+- [x] **T12 [You: Stripe]** Create the webhook endpoint: **Workbench →
+      Webhooks → + Add endpoint** (older dashboards: Developers → Webhooks)
+      → URL **`https://api.boxbuddy.io/payments/webhook`**
       → "Select events" → tick exactly `checkout.session.completed` and
       `checkout.session.async_payment_succeeded` → Add endpoint. Then click the
       endpoint and **Reveal** the **Signing secret** (`whsec_...`) — copy it.
 
+      > **Corrected 2026-09-16.** This originally said
+      > `/webhooks/stripe`. That route exists in API Gateway but has **no
+      > integration** and returns 404 — the working route is
+      > `POST /payments/webhook` → `webhookStripe`. Verify the endpoint URL in
+      > Stripe matches, or events 404 and no credits are ever granted (T19b).
+
 ## Phase 3 — AWS: deploy Lambdas + routes (with test-mode values)
 
-- [x] **T13 [You: AWS]** Create/update Lambda `payments-checkout`: Lambda
+> **Deployed function names differ from this doc.** What actually exists:
+>
+> | This doc calls it   | Deployed as                 | Notes                                    |
+> | ------------------- | --------------------------- | ---------------------------------------- |
+> | `payments-checkout` | **`boxBuddyPaymentsCheckout`** | real code + all 7 env vars            |
+> | `webhook-stripe`    | **`webhookStripe`**         | wired to `POST /payments/webhook`        |
+> | `webhook-revenuecat`| `webhook-revenuecat`        | deployed, **route not integrated yet**   |
+>
+> A separate 295-byte `payments-checkout` stub also exists and is no longer
+> routed anywhere — delete it (see `TASKS.md` cleanup).
+
+- [x] **T13 [You: AWS]** Create/update the checkout Lambda: Lambda
       console → Create function (or open existing stub) → Node.js 20.x →
       upload the T4 zip. Handler `index.handler`.
-- [x] **T14 [You: AWS]** Set `payments-checkout` env vars (Configuration →
+      _Live as `boxBuddyPaymentsCheckout` (runtime nodejs24.x)._
+- [x] **T14 [You: AWS]** Set the checkout Lambda's env vars (Configuration →
       Environment variables): - `STRIPE_SECRET_KEY` = `sk_test_...` (T9) - `STRIPE_PRICE_CREDITS_50` / `_200` / `_600` = the three `price_...` (T11) - `SUPABASE_URL` = project URL (T7) - `SUPABASE_ANON_KEY` = anon key (T7) - `WEB_APP_URL` = `https://boxbuddy.io`
       If the old stub had `SUPABASE_SERVICE_ROLE_KEY` set, **delete it** —
       the function no longer uses it and it shouldn't hold it.
@@ -78,21 +97,47 @@ package-lock.json node_modules` from inside each folder._
       `REVENUECAT_WEBHOOK_AUTH_TOKEN` = invent a long random string now, in the
       form `Bearer <40+ random chars>` (e.g. from `openssl rand -hex 32`).
       Save that exact string — RevenueCat gets it in T27.
-- [x] **T17 [You: AWS]** API Gateway (the API serving `api.boxbuddy.io`) →
-      **Routes**: confirm `POST /payments/checkout` exists and integrates with
-      the `payments-checkout` Lambda; **create** `POST /webhooks/stripe` →
-      `webhook-stripe` and `POST /webhooks/revenuecat` → `webhook-revenuecat`.
-      On both webhook routes: **no authorizer** (the Lambdas do their own
-      auth) and **no body-transforming mapping template** — the Stripe
+- [x] **T17 [You: AWS]** API Gateway (`BoxBuddyAPI`, id `en2q8yrcrg`) →
+      **Routes**. On any webhook route: **no authorizer** (the Lambdas do their
+      own auth) and **no body-transforming mapping template** — the Stripe
       signature check needs the raw body byte-for-byte.
+
+      Actual state as of 2026-09-16:
+
+      | Route                       | Integration              | Status                     |
+      | --------------------------- | ------------------------ | -------------------------- |
+      | `POST /payments/checkout`   | `boxBuddyPaymentsCheckout` | ✅ repointed 2026-09-15 (was the stub) |
+      | `POST /payments/webhook`    | `webhookStripe`          | ✅ working (400 on unsigned) |
+      | `POST /webhooks/stripe`     | **none**                 | ❌ 404 — dead route, delete or wire |
+      | `POST /webhooks/revenuecat` | **none**                 | ❌ 404 — blocks T27/T30    |
+
+      `webhook-revenuecat` also has **no Lambda invoke permission** for API
+      Gateway; wiring the route via the console adds it automatically.
 - [x] **T18 [You: AWS]** Deploy/publish the API stage if your API type
       requires it (REST APIs need an explicit "Deploy API"; HTTP APIs with
       auto-deploy don't).
 
 ## Phase 4 — End-to-end web test (still test mode)
 
-- [ ] **T19 [Claude/You]** Deploy the current frontend build (with the credit
-      store UI from `dfc9106`) to boxbuddy.io if it isn't live yet.
+- [x] **T19 [Claude/You]** Deploy the current frontend build (with the credit
+      store UI from `dfc9106`). _Live at `https://dev.boxbuddy.io` (password
+      gated) — see `docs/deploy-dev-environment.md`. The apex stays unpointed
+      until the coming-soon page ships._
+- [ ] **T19a [You: AWS]** **Blocks T20.** Raise
+      `boxBuddyPaymentsCheckout` limits: Configuration → General configuration
+      → **Timeout 15s** (currently 3s) and **Memory 512MB** (currently 128MB).
+      CloudWatch shows `Status: timeout` at 3000ms with 117MB of 128MB used —
+      Stripe SDK init plus two network round-trips can't finish in 3s, and
+      Lambda CPU scales with memory, so the low memory is part of the slowness.
+      This is what surfaces as `Failed to start checkout: 500`.
+- [ ] **T19b [You: Stripe]** **Blocks T21.** Confirm the T12 endpoint URL is
+      `https://api.boxbuddy.io/payments/webhook`, its events are the two
+      listed, and its signing secret matches `STRIPE_WEBHOOK_SECRET` on
+      `webhookStripe`. Check **recent deliveries** on the endpoint: a column of
+      404s means the wrong URL, 400s mean a stale signing secret.
+- [ ] **T19c [You: AWS]** Set `WEB_APP_URL` on `boxBuddyPaymentsCheckout` to
+      `https://dev.boxbuddy.io` (currently `https://boxbuddy.io`, which
+      resolves nowhere) so the post-payment redirect lands somewhere real.
 - [ ] **T20 [You]** In the live web app, log in as yourself → buy the $4.99
       pack → on the Stripe page pay with card `4242 4242 4242 4242`, any
       future expiry, any CVC, any name/zip.
@@ -162,6 +207,15 @@ the ASC items early.
 
 ---
 
-**Current status:** Phase 0 complete. Next up: T5–T7 (Supabase), then Stripe
-test mode. Nothing in Phases 1–3 is believed deployed yet — check off anything
-already done as you find it.
+**Current status (2026-09-16):** Phases 0–3 are done — Supabase, Stripe test
+mode, all three Lambdas, and the checkout route are deployed and wired. The
+frontend is live on `dev.boxbuddy.io` (T19).
+
+Phase 4 is blocked on three small config fixes, in order: **T19a** (the
+checkout Lambda's 3s timeout — the current cause of
+`Failed to start checkout: 500`), **T19b** (Stripe's webhook endpoint URL, or
+credits silently never arrive), and **T19c** (the post-payment redirect
+target). After those, T20–T23 should run clean.
+
+Phase 5 (iOS) is additionally blocked on `POST /webhooks/revenuecat` having no
+integration — see T17.
