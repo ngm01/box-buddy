@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Box Buddy — Coming soon</title>
+    <meta
+      name="description"
+      content="Box Buddy is an inventory app for your garage, basement, and storage unit. Launching soon — join the waitlist for the first invite."
+    />
+    <link rel="icon" href="/favicon.ico" />
+
+    <meta property="og:title" content="Box Buddy — Coming soon" />
+    <meta
+      property="og:description"
+      content="An inventory app for your garage, basement, and storage unit. Launching soon."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://boxbuddy.io" />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/fraunces-600-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-400-latin.woff2" crossorigin />
+
+    <style>
+      /* Self-hosted subsets (basic latin only) extracted from the design file.
+         No external font requests — nothing here blocks on a third party. */
+      @font-face {
+        font-family: 'Fraunces';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/fonts/fraunces-600-latin.woff2') format('woff2');
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+          U+2000-206F, U+2122, U+2212, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: 'Fraunces';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/fonts/fraunces-700-latin.woff2') format('woff2');
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+          U+2000-206F, U+2122, U+2212, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/inter-400-latin.woff2') format('woff2');
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+          U+2000-206F, U+2122, U+2212, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/fonts/inter-600-latin.woff2') format('woff2');
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+          U+2000-206F, U+2122, U+2212, U+FEFF, U+FFFD;
+      }
+
+      :root {
+        --paper: #fdfbf6;
+        --ink: #1a1814;
+        --muted: #6b6357;
+        --faint: #9b9080;
+        --accent: #1976d2;
+        --accent-dark: #1565c0;
+        --hairline: #e8e0d0;
+        --card: #ffffff;
+
+        --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+          sans-serif;
+        --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+
+        --gutter: clamp(20px, 5vw, 56px);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        background-color: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 16px;
+        line-height: 1.5;
+        position: relative;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* Warm dot grid behind everything. Decorative only. */
+      .dot-grid {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.5;
+        background-image: radial-gradient(circle, rgba(26, 24, 20, 0.08) 1px, transparent 1px);
+        background-size: 24px 24px;
+      }
+
+      .shell {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: 1280px;
+        margin: 0 auto;
+        padding-inline: var(--gutter);
+      }
+
+      /* ---------- header ---------- */
+
+      .site-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-block: 32px;
+      }
+
+      .mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background-color: var(--accent);
+      }
+
+      .wordmark {
+        font-family: var(--serif);
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      /* ---------- main ---------- */
+
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding-block: clamp(48px, 9vh, 96px);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 32px;
+        padding: 6px 14px;
+        border: 1px solid var(--hairline);
+        border-radius: 100px;
+        background-color: var(--card);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .badge::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--accent);
+      }
+
+      h1 {
+        max-width: 900px;
+        margin: 0 0 24px;
+        font-family: var(--serif);
+        font-size: clamp(2.75rem, 8.5vw, 5.5rem);
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        text-wrap: balance;
+      }
+
+      .lede {
+        max-width: 580px;
+        margin: 0 0 40px;
+        color: var(--muted);
+        font-size: clamp(1rem, 2.2vw, 1.1875rem);
+        line-height: 1.55;
+        text-wrap: pretty;
+      }
+
+      /* ---------- signup form ---------- */
+
+      .signup {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        max-width: 480px;
+        padding: 6px;
+        border: 1px solid var(--hairline);
+        border-radius: 12px;
+        background-color: var(--card);
+        box-shadow: 0 4px 16px rgba(26, 24, 20, 0.04);
+      }
+
+      .signup input[type='email'] {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 14px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        font-family: inherit;
+        font-size: 15px;
+      }
+
+      .signup input[type='email']::placeholder {
+        color: var(--faint);
+      }
+
+      .signup input[type='email']:focus {
+        outline: 2px solid rgba(25, 118, 210, 0.35);
+        outline-offset: 0;
+      }
+
+      .signup button {
+        flex: none;
+        padding: 10px 20px;
+        border: 0;
+        border-radius: 8px;
+        background-color: var(--accent);
+        color: #fff;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+      }
+
+      .signup button:hover:not(:disabled) {
+        background-color: var(--accent-dark);
+      }
+
+      .signup button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .note {
+        margin: 16px 0 0;
+        min-height: 1.3em;
+        color: var(--faint);
+        font-size: 13px;
+      }
+
+      .note[data-state='error'] {
+        color: #b3261e;
+      }
+
+      .note[data-state='success'] {
+        color: var(--muted);
+      }
+
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      /* ---------- footer ---------- */
+
+      .site-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding-block: 32px;
+        color: var(--faint);
+        font-size: 13px;
+      }
+
+      /* ---------- narrow screens ---------- */
+
+      @media (max-width: 520px) {
+        .signup {
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .signup button {
+          width: 100%;
+          padding-block: 12px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="dot-grid" aria-hidden="true"></div>
+
+    <div class="shell">
+      <header class="site-header">
+        <span class="mark" aria-hidden="true">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="18.2"
+            height="18.2"
+            fill="none"
+            stroke="#fff"
+            stroke-width="1.8"
+            stroke-linejoin="round"
+          >
+            <path d="M3 7l9-4 9 4v10l-9 4-9-4V7z" />
+            <path d="M3 7l9 4 9-4M12 11v10" />
+          </svg>
+        </span>
+        <span class="wordmark">Box Buddy</span>
+      </header>
+
+      <main>
+        <p class="badge">Coming soon</p>
+
+        <h1>We're packing things up.</h1>
+
+        <p class="lede">
+          Box Buddy is an inventory app for your garage, basement, and storage unit. Launching soon
+          — leave your email and we'll send you the first invite.
+        </p>
+
+        <form class="signup" id="signup" novalidate>
+          <label class="visually-hidden" for="email">Email address</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="you@email.com"
+            autocomplete="email"
+            required
+          />
+          <button type="submit" id="submit">Notify me</button>
+        </form>
+
+        <p class="note" id="note" role="status" aria-live="polite">
+          No spam. Just one email when we open the doors.
+        </p>
+      </main>
+
+      <footer class="site-footer">
+        <span>© 2026 Box Buddy</span>
+      </footer>
+    </div>
+
+    <script>
+      // Injected at build time from Amplify environment variables (see amplify.yml).
+      // The anon key is publishable by design; the waitlist table is insert-only
+      // under RLS, so this grants nothing beyond adding a row.
+      const SUPABASE_URL = '__SUPABASE_URL__'
+      const SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY__'
+
+      const form = document.getElementById('signup')
+      const input = document.getElementById('email')
+      const button = document.getElementById('submit')
+      const note = document.getElementById('note')
+
+      const DEFAULT_NOTE = note.textContent.trim()
+
+      const setNote = (message, state) => {
+        note.textContent = message
+        if (state) {
+          note.dataset.state = state
+        } else {
+          delete note.dataset.state
+        }
+      }
+
+      const isConfigured = () =>
+        SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 0 &&
+        !SUPABASE_ANON_KEY.startsWith('__')
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault()
+
+        const email = input.value.trim().toLowerCase()
+
+        if (!input.checkValidity() || !email) {
+          setNote('Please enter a valid email address.', 'error')
+          input.focus()
+          return
+        }
+
+        if (!isConfigured()) {
+          // Misconfigured build — say so rather than silently dropping the signup.
+          setNote('Signups are temporarily unavailable. Please try again later.', 'error')
+          return
+        }
+
+        button.disabled = true
+        setNote('Adding you to the list…')
+
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              Prefer: 'return=minimal',
+            },
+            body: JSON.stringify({ email, source: 'coming-soon' }),
+          })
+
+          // 23505 = unique violation: already signed up. From the visitor's point
+          // of view that's a success, and saying so avoids confirming to a
+          // stranger whether a given address is on the list.
+          const alreadyJoined = res.status === 409
+
+          if (res.ok || alreadyJoined) {
+            form.hidden = true
+            setNote("You're on the list. We'll be in touch.", 'success')
+            return
+          }
+
+          throw new Error(`Signup failed: ${res.status}`)
+        } catch (err) {
+          console.error(err)
+          setNote('Something went wrong. Please try again.', 'error')
+          button.disabled = false
+        }
+      })
+
+      input.addEventListener('input', () => {
+        if (note.dataset.state === 'error') setNote(DEFAULT_NOTE)
+      })
+    </script>
+  </body>
+</html>

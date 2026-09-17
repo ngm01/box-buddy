@@ -1,0 +1,36 @@
+# Build spec for the SECOND Amplify app (the coming-soon page at boxbuddy.io).
+#
+# Paste this into that app's Build settings in the console. It cannot be picked
+# up automatically: Amplify reads `amplify.yml` from the repo ROOT, and the root
+# one builds the Quasar app. Pointing the landing app at the same repo without
+# this override would deploy the whole SPA to the apex.
+#
+# There is no npm install and no bundler — the page is plain HTML. The only
+# build step rewrites the two Supabase placeholders, which keeps the anon key
+# out of git even though it is publishable.
+#
+# Required environment variables on the landing app:
+#   SUPABASE_URL       https://<project>.supabase.co
+#   SUPABASE_ANON_KEY  the anon/publishable key
+#
+# Never add the service role key here: this output is a public web page.
+
+version: 1
+frontend:
+  phases:
+    build:
+      commands:
+        - |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "SUPABASE_URL and SUPABASE_ANON_KEY must be set — the signup form would be dead without them."
+            exit 1
+          fi
+        # '|' delimiter: the URL contains '/', the key does not contain '|'.
+        - sed -i "s|__SUPABASE_URL__|$SUPABASE_URL|g; s|__SUPABASE_ANON_KEY__|$SUPABASE_ANON_KEY|g" landing/index.html
+        - grep -q '__SUPABASE_' landing/index.html && echo "Placeholder substitution failed" && exit 1 || true
+  artifacts:
+    baseDirectory: landing
+    files:
+      - '**/*'
+  cache:
+    paths: []
