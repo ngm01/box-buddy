@@ -126,8 +126,10 @@
         <q-separator />
 
         <q-card-actions class="q-pa-md q-gutter-sm">
-          <q-btn color="primary" icon="add" label="Add item" unelevated @click="showAddItemDialog" />
-          <q-btn outline color="primary" icon="edit" label="Edit details" @click="startEditingBox" />
+          <template v-if="isOwner">
+            <q-btn color="primary" icon="add" label="Add item" unelevated @click="showAddItemDialog" />
+            <q-btn outline color="primary" icon="edit" label="Edit details" @click="startEditingBox" />
+          </template>
           <q-btn outline color="primary" icon="qr_code" label="View QR code" @click="showQRCodeDialog" />
         </q-card-actions>
       </q-card>
@@ -180,7 +182,7 @@
         </q-card-section>
       </q-card>
 
-      <AddItemDialog :boxId="box.id" :boxName="box.name" ref="addItemDialog" @item-added="fetchItems" />
+      <AddItemDialog v-if="isOwner" :boxId="box.id" :boxName="box.name" ref="addItemDialog" @item-added="fetchItems" />
       <QRCodeDialog ref="qrCodeDialog" :box="box" />
 
       <!-- Items section -->
@@ -240,7 +242,7 @@
                   </span>
                 </div>
               </div>
-              <div class="row items-start q-gutter-x-xs q-ml-sm flex-shrink-0">
+              <div v-if="isOwner" class="row items-start q-gutter-x-xs q-ml-sm flex-shrink-0">
                 <q-btn flat round dense icon="edit" color="grey-6" @click.stop="openEditItemDialog(item)">
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
@@ -297,12 +299,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 import { useBoxesStore } from 'src/stores/boxes.store'
 import { useItemsStore } from 'src/stores/items.store'
+import { useAuthStore } from 'src/stores/auth.store'
 import { supabase } from 'src/utils/supabase'
 import { getBoxPath, getBoxQrValue } from 'src/utils/boxQr'
 
@@ -310,6 +313,7 @@ const route = useRoute()
 const router = useRouter()
 const boxesStore = useBoxesStore()
 const itemsStore = useItemsStore()
+const authStore = useAuthStore()
 const box = ref(null)
 const boxDraft = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const addItemDialog = ref(null)
@@ -319,6 +323,10 @@ const isEditing = ref(false)
 const isLoading = ref(false)
 const pageState = ref('ready')
 const itemSearch = ref('')
+
+// Public and shared boxes are readable by other accounts, but only the owner
+// may change them (the database rejects or silently ignores anyone else).
+const isOwner = computed(() => !!box.value && box.value.user_id === authStore.user?.id)
 let itemSearchDebounce = null
 
 const editItemDialog = ref(false)
