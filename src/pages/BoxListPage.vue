@@ -101,6 +101,7 @@
       No boxes yet — create one to get started!
     </div>
 
+    <q-banner v-if="loadError" rounded class="bg-red-1 text-red-10 q-mt-md">{{ loadError }}</q-banner>
     <q-banner v-if="errorMessage" color="negative" class="q-mt-md">{{ errorMessage }}</q-banner>
 
     <!-- Create new box -->
@@ -222,6 +223,7 @@ const boxSearch = ref('')
 const showCreateBoxModal = ref(false)
 const showDeleteModal = ref(false)
 const errorMessage = ref('')
+const loadError = ref('')
 const isLoading = ref(true)
 const itemCounts = ref({})
 
@@ -252,16 +254,25 @@ const fetchItemCounts = async () => {
   }, {})
 }
 
+// Fetches the list and its item counts. Failures become a banner instead of
+// an unhandled rejection that leaves the page looking empty.
+const refreshBoxes = async () => {
+  try {
+    await boxesStore.fetchBoxes(boxSearch.value)
+    loadError.value = ''
+    await fetchItemCounts()
+  } catch {
+    loadError.value = 'We could not load your boxes right now. Please try again.'
+  }
+}
+
 const openCreateBoxModal = () => {
   showCreateBoxModal.value = true
 }
 
 const handleBoxSearch = () => {
   if (searchDebounce) clearTimeout(searchDebounce)
-  searchDebounce = setTimeout(async () => {
-    await boxesStore.fetchBoxes(boxSearch.value)
-    await fetchItemCounts()
-  }, 250)
+  searchDebounce = setTimeout(refreshBoxes, 250)
 }
 
 const handleCreateBox = async () => {
@@ -284,8 +295,7 @@ const handleCreateBox = async () => {
   } finally {
     showCreateBoxModal.value = false
     box.value = { name: '', description: '', access_level: 'private', tags: '' }
-    await boxesStore.fetchBoxes(boxSearch.value)
-    await fetchItemCounts()
+    await refreshBoxes()
   }
 }
 
@@ -306,15 +316,13 @@ const deleteBox = async () => {
     errorMessage.value = error.message
   } finally {
     selectedBox.value = null
-    await boxesStore.fetchBoxes(boxSearch.value)
-    await fetchItemCounts()
+    await refreshBoxes()
   }
 }
 
 onMounted(async () => {
   try {
-    await boxesStore.fetchBoxes(boxSearch.value)
-    await fetchItemCounts()
+    await refreshBoxes()
   } finally {
     isLoading.value = false
   }
