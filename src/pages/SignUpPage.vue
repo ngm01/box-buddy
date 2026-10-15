@@ -58,11 +58,13 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth.store'
 import { useQuasar } from 'quasar'
 import { supabase } from 'src/utils/supabase'
 
 const authStore = useAuthStore()
+const router = useRouter()
 const $q = useQuasar()
 
 const displayName = ref('')
@@ -111,6 +113,9 @@ const signUp = async () => {
     if (!authData?.user) {
       throw new Error('Sign up did not return a user. Please try again.')
     }
+
+    // SignUpSuccessPage reads the address from the query to offer a resend.
+    await router.push({ path: '/signup-success', query: { email: email.value } })
   } catch (err) {
     const message = err?.message || ''
 
@@ -120,6 +125,8 @@ const signUp = async () => {
     }
 
     error.value = message || 'Unable to sign up right now. Please try again.'
+  } finally {
+    $q.loading.hide()
   }
 }
 </script>
