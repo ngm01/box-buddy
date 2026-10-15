@@ -297,15 +297,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 import { useBoxesStore } from 'src/stores/boxes.store'
 import { useItemsStore } from 'src/stores/items.store'
 import { supabase } from 'src/utils/supabase'
+import { getBoxPath, getBoxQrValue } from 'src/utils/boxQr'
 
 const route = useRoute()
+const router = useRouter()
 const boxesStore = useBoxesStore()
 const itemsStore = useItemsStore()
 const box = ref(null)
@@ -416,14 +418,24 @@ const fetchBoxDetails = async () => {
 
 const updateBox = async () => {
   try {
+    const name = boxDraft.value.name.trim()
+    const renamed = name !== box.value.name
     await boxesStore.updateBox(box.value.id, {
-      name: boxDraft.value.name.trim(),
+      name,
       description: boxDraft.value.description,
       access_level: boxDraft.value.access_level,
       tags: boxDraft.value.tags,
+      // The box URL is built from its name, so keep the stored one in step.
+      ...(renamed ? { qr_code_url: getBoxQrValue({ ...box.value, name }) } : {}),
     })
-    await fetchBoxDetails()
     isEditing.value = false
+    if (renamed) {
+      // The current URL names the old box, which no longer resolves; the
+      // route watcher reloads the page at the new one.
+      await router.replace(getBoxPath(box.value.display_name, name))
+    } else {
+      await fetchBoxDetails()
+    }
   } catch (error) {
     console.error('Error updating box:', error)
   }
@@ -472,15 +484,30 @@ const deleteItem = async () => {
   }
 }
 
-onMounted(async () => {
+const loadPage = async () => {
   isLoading.value = true
+  isEditing.value = false
+  box.value = null
+  items.value = []
   try {
     await fetchBoxDetails()
     await fetchItems()
   } finally {
     isLoading.value = false
   }
-})
+}
+
+onMounted(loadPage)
+
+// Vue Router reuses this component when only the params change (a rename,
+// or a deep link opened while another box is showing), so onMounted alone
+// would leave the previous box on screen.
+watch(
+  () => [route.params.display_name, route.params.box_name],
+  ([displayName, boxName]) => {
+    if (displayName && boxName) loadPage()
+  },
+)
 </script>
 
 <style scoped>
