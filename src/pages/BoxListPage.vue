@@ -210,6 +210,7 @@ import { useSubscription } from 'src/composables/useSubscription'
 import { normalizeApiError } from 'src/utils/apiErrors'
 import { supabase } from 'src/utils/supabase'
 import PaywallGate from 'src/components/paywall/PaywallGate.vue'
+import { getBoxPath } from 'src/utils/boxQr'
 
 const { requireEntitlement, openPaywallModal } = useSubscription()
 const router = useRouter()
@@ -289,7 +290,7 @@ const handleCreateBox = async () => {
 }
 
 const goToBoxDetail = (display_name, name) => {
-  router.push('/boxes/' + display_name + '/' + name)
+  router.push(getBoxPath(display_name, name))
 }
 
 const confirmDelete = (id) => {

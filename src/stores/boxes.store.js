@@ -4,6 +4,7 @@ import axios from 'axios'
 import apiClient from 'src/utils/apiClient'
 import { useAuthStore } from './auth.store'
 import { getQrBaseUrlOrThrow } from 'src/config/app.config'
+import { getBoxPath } from 'src/utils/boxQr'
 
 const authStore = useAuthStore()
 const API_BASE = `https://api.boxbuddy.io/boxes/`
@@ -79,7 +80,7 @@ export const useBoxesStore = defineStore('boxes', () => {
     console.log('boxId', boxId)
 
     const qrBaseUrl = getQrBaseUrlOrThrow()
-    const boxUrl = `${qrBaseUrl}/boxes/${display_name}/${box.name}`
+    const boxUrl = `${qrBaseUrl}${getBoxPath(display_name, box.name)}`
     console.log('boxUrl', boxUrl)
 
     try {

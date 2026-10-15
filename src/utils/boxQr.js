@@ -1,14 +1,28 @@
 import { safeWebBaseUrl } from 'src/config/app.config'
 
-// Use stored qr_code_url if available; otherwise derive it from box identifiers.
-// qr_code_url may be null on boxes fetched directly from Supabase before the
-// URL was ever persisted.
-export const getBoxQrValue = (box) => {
-  if (box?.qr_code_url) return box.qr_code_url
-  if (box?.display_name && box?.name) {
-    return `${safeWebBaseUrl}/boxes/${box.display_name}/${box.name}`
+// App path for a box. Names are user-entered, so each segment is encoded:
+// a raw space ends the URL for most camera scanners, and '/', '?' or '#'
+// would change which route it opens.
+export const getBoxPath = (displayName, boxName) =>
+  `/boxes/${encodeURIComponent(displayName)}/${encodeURIComponent(boxName)}`
+
+const originOf = (url) => {
+  try {
+    return new URL(url).origin
+  } catch {
+    return ''
   }
-  return ''
+}
+
+// Keep the origin of the stored qr_code_url (dev and prod share one database,
+// so it records which deployment the box was created on) but always rebuild
+// the path, so older unencoded URLs still produce a scannable code.
+export const getBoxQrValue = (box) => {
+  if (box?.display_name && box?.name) {
+    const origin = originOf(box.qr_code_url) || safeWebBaseUrl
+    return `${origin}${getBoxPath(box.display_name, box.name)}`
+  }
+  return box?.qr_code_url || ''
 }
 
 export const getBoxShortIdentifier = (box) => {
