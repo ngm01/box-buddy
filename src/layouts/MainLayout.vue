@@ -37,7 +37,7 @@
 
         <q-item clickable tag="router-link" to="/boxes">
           <q-item-section avatar>
-            <q-icon name="box" />
+            <q-icon name="inventory_2" />
           </q-item-section>
 
           <q-item-section>

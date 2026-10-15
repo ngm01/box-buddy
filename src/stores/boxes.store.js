@@ -77,14 +77,10 @@ export const useBoxesStore = defineStore('boxes', () => {
     }
 
     const box = boxRes.data
-    const boxId = box.id
-    console.log('boxId', boxId)
-
     const boxUrl = `${qrBaseUrl}${getBoxPath(display_name, box.name)}`
-    console.log('boxUrl', boxUrl)
 
     try {
-      await apiClient.patch(boxByIdUrl(boxId), { qr_code_url: boxUrl })
+      await apiClient.patch(boxByIdUrl(box.id), { qr_code_url: boxUrl })
     } catch (error) {
       console.error('Error updating box with QR code URL:', error)
     }
