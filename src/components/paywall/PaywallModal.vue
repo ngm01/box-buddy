@@ -19,7 +19,14 @@
 
       <q-card-actions align="right">
         <q-btn flat label="Not now" @click="closePaywallModal" />
-        <q-btn color="primary" label="Upgrade" :loading="checkoutLoading" @click="upgrade" />
+        <!-- Subscriptions are web/Stripe-only; external payment links are not allowed in the iOS app -->
+        <q-btn
+          v-if="!isNative"
+          color="primary"
+          label="Upgrade"
+          :loading="checkoutLoading"
+          @click="upgrade"
+        />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -33,8 +40,10 @@ import { createCheckoutSession } from 'src/billing/billing.service'
 import { usePaywallStore } from 'src/stores/paywall.store'
 import { useSubscriptionStore } from 'src/stores/subscription.store'
 import { formatLimit } from 'src/entitlements/subscriptionPlans'
+import { isNativePayments } from 'src/services/payments.service'
 
 const $q = useQuasar()
+const isNative = isNativePayments()
 const paywallStore = usePaywallStore()
 const subscriptionStore = useSubscriptionStore()
 const checkoutLoading = ref(false)

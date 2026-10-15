@@ -173,6 +173,10 @@ the ASC items early.
 - [ ] **T28 [Claude]** Add `REVENUECAT_APPLE_API_KEY=appl_...` to `.env.local`
       and confirm it's wired through the Quasar build config; rebuild the iOS
       app (`quasar build` + Capacitor sync).
+      _Wiring verified 2026-10-06: Quasar inlines every `.env.local` key into
+      `process.env` (no `quasar.config.js` change needed) — only the key itself
+      is missing. `POST /webhooks/revenuecat` still returns 404 as of the same
+      date._
 - [ ] **T29 [You: ASC]** Create a **Sandbox tester** account (Users and Access
       → Sandbox) and sign into it on a **real device** (Settings → App Store →
       Sandbox Account). Simulator IAP is unreliable.

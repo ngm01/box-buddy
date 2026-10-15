@@ -46,7 +46,8 @@
           </q-item-section>
         </q-item>
 
-        <q-item clickable tag="router-link" to="/settings/billing">
+        <!-- Stripe billing is web-only; external payment links are not allowed in the iOS app -->
+        <q-item v-if="!isNative" clickable tag="router-link" to="/settings/billing">
           <q-item-section avatar>
             <q-icon name="payments" />
           </q-item-section>
@@ -77,6 +78,9 @@ import { useCreditsStore } from 'src/stores/credits.store'
 import PaywallModal from 'src/components/paywall/PaywallModal.vue'
 import CreditPill from 'src/components/CreditPill.vue'
 import CreditsSheet from 'src/components/CreditsSheet.vue'
+import { isNativePayments } from 'src/services/payments.service'
+
+const isNative = isNativePayments()
 
 const authStore = useAuthStore()
 const subscriptionStore = useSubscriptionStore()
