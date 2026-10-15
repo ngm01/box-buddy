@@ -113,5 +113,9 @@ export const useBoxesStore = defineStore('boxes', () => {
     }
   }
 
-  return { boxes, fetchBoxes, createBox, updateBox, deleteBox }
+  const reset = () => {
+    boxes.value = []
+  }
+
+  return { boxes, fetchBoxes, createBox, updateBox, deleteBox, reset }
 })

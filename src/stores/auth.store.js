@@ -4,6 +4,8 @@ import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { supabase } from 'src/utils/supabase'
 import { markServiceUnavailable } from 'src/utils/serviceStatus'
 import { initPayments, teardownPayments } from 'src/services/payments.service'
+import { useBoxesStore } from 'src/stores/boxes.store'
+import { useCreditsStore } from 'src/stores/credits.store'
 
 const SESSION_CHECK_TIMEOUT_MS = 8000
 
@@ -27,6 +29,11 @@ export const useAuthStore = defineStore('auth', () => {
       initPayments(session.user).catch((err) => console.error('Payments init failed:', err))
     } else if (event === 'SIGNED_OUT') {
       teardownPayments().catch((err) => console.error('Payments teardown failed:', err))
+      // Every sign-out path (logout button, 401 handler, expired refresh)
+      // lands here. In hash mode none of them reload the page, so clear the
+      // previous user's data before someone else signs in.
+      useBoxesStore().reset()
+      useCreditsStore().reset()
     }
   })
 
