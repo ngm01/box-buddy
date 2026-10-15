@@ -109,14 +109,24 @@
       </div>
     </q-card>
   </q-dialog>
+
+  <!-- Print-only surface; hidden on screen, see .bb-print-root in app.scss -->
+  <Teleport v-if="isOpen" to="body">
+    <div class="bb-print-root">
+      <BoxQrLabel ref="printLabelRef" :box="props.box" :variant="printVariant" />
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useQuasar } from 'quasar'
+import { Capacitor } from '@capacitor/core'
 import QRCode from 'qrcode'
 import QRCodeCanvas from './QRCodeCanvas.vue'
-import { safeWebBaseUrl } from 'src/config/app.config'
+import BoxQrLabel from './BoxQrLabel.vue'
+import { getBoxQrValue, getBoxShortIdentifier } from 'src/utils/boxQr'
+import { printDocument } from 'src/services/print.service'
 
 const $q = useQuasar()
 
@@ -131,23 +141,13 @@ const qrCodeCanvasRef = ref(null)
 const isOpen = ref(false)
 const isDownloadingPng = ref(false)
 const isDownloadingSvg = ref(false)
+const isNative = Capacitor.isNativePlatform()
 
-// Use stored qr_code_url if available; otherwise derive it from box identifiers.
-// qr_code_url may be null on boxes fetched directly from Supabase before the
-// URL was ever persisted.
-const qrValue = computed(() => {
-  if (props.box?.qr_code_url) return props.box.qr_code_url
-  if (props.box?.display_name && props.box?.name) {
-    return `${safeWebBaseUrl}/boxes/${props.box.display_name}/${props.box.name}`
-  }
-  return ''
-})
+const printLabelRef = ref(null)
+const printVariant = ref('label')
 
-const shortIdentifier = computed(() => {
-  const id = props.box?.id
-  if (!id) return ''
-  return `ID: ${String(id).slice(-8)}`
-})
+const qrValue = computed(() => getBoxQrValue(props.box))
+const shortIdentifier = computed(() => getBoxShortIdentifier(props.box))
 
 const labelMeta = computed(() => {
   const parts = []
@@ -161,7 +161,23 @@ defineExpose({ isOpen })
 const getQRCodeDataUrl = () => qrCodeCanvasRef.value?.getQRCodeDataUrl?.() || null
 const getQRCodeBlob = async () => (await qrCodeCanvasRef.value?.getQRCodeBlob?.()) || null
 
+// <a download> does nothing inside the iOS WebView, so native hands the file
+// to the share sheet (which offers Save to Files / Photos / Print).
+const shareFile = async (blob, filename) => {
+  const file = new File([blob], filename, { type: blob.type })
+  if (!navigator.canShare?.({ files: [file] })) {
+    $q.notify({ type: 'warning', message: 'Saving files is not supported on this device.' })
+    return
+  }
+  try {
+    await navigator.share({ files: [file], title: props.box.name })
+  } catch (err) {
+    if (err.name !== 'AbortError') console.error('Share failed:', err)
+  }
+}
+
 const downloadFile = (blob, filename) => {
+  if (isNative) return shareFile(blob, filename)
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
@@ -172,29 +188,27 @@ const downloadFile = (blob, filename) => {
   URL.revokeObjectURL(url)
 }
 
-const downloadQRCode = () => {
-  const dataUrl = getQRCodeDataUrl()
-  if (!dataUrl) return
+const downloadQRCode = async () => {
+  const blob = await getQRCodeBlob()
+  if (!blob) return
   $q.notify({ message: 'Downloading QR code…', timeout: 1500 })
-  const link = document.createElement('a')
-  link.href = dataUrl
-  link.download = `${props.box.name || 'box'}-qr.png`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  await downloadFile(blob, `${props.box.name || 'box'}-qr.png`)
 }
 
-const printQRCode = () => {
-  const dataUrl = getQRCodeDataUrl()
-  if (!dataUrl) return
+const printVariantOf = async (variant) => {
+  printVariant.value = variant
+  await nextTick()
+  await printLabelRef.value?.whenReady()
   $q.notify({ message: 'Sending to printer…', timeout: 1500 })
-  const win = window.open('', '_blank')
-  if (!win) return
-  win.document.write(`<html><head><title>Print QR Code</title></head><body>${'<img src="' + dataUrl + '" />'}`)
-  win.document.write('</body></html>')
-  win.document.close()
-  win.onload = () => { win.print(); win.close() }
+  try {
+    await printDocument({ jobName: `${props.box.name || 'Box'} ${variant === 'qr' ? 'QR code' : 'label'}` })
+  } catch (err) {
+    console.error('Print failed:', err)
+    $q.notify({ type: 'negative', message: err.message || 'Printing failed.' })
+  }
 }
+
+const printQRCode = () => printVariantOf('qr')
 
 const shareQRCode = async () => {
   $q.notify({ message: 'Opening share sheet…', timeout: 1500 })
@@ -302,18 +316,7 @@ const downloadLabelSvg = async () => {
   }
 }
 
-const printLabel = async () => {
-  $q.notify({ message: 'Sending to printer…', timeout: 1500 })
-  const canvas = await createLabelCanvas()
-  const dataUrl = canvas.toDataURL('image/png')
-  const win = window.open('', '_blank')
-  if (!win) return
-  win.document.write('<html><head><title>Print Label</title></head><body style="margin:0">')
-  win.document.write(`<img src="${dataUrl}" style="width:100%" />`)
-  win.document.write('</body></html>')
-  win.document.close()
-  win.onload = () => { win.print(); win.close() }
-}
+const printLabel = () => printVariantOf('label')
 </script>
 
 <style scoped>

@@ -11,3 +11,33 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+// Print surface: only `.bb-print-root` (see QRCodeDialog + print.service.js)
+// prints while <html> has `bb-printing`; it never shows on screen.
+.bb-print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 10mm;
+  }
+
+  html.bb-printing,
+  html.bb-printing body {
+    background: #fff !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  html.bb-printing body > *:not(.bb-print-root) {
+    display: none !important;
+  }
+
+  html.bb-printing .bb-print-root {
+    display: block !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
