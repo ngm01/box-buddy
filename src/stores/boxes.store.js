@@ -5,6 +5,7 @@ import apiClient from 'src/utils/apiClient'
 import { useAuthStore } from './auth.store'
 import { getQrBaseUrlOrThrow } from 'src/config/app.config'
 import { getBoxPath } from 'src/utils/boxQr'
+import { ilikeContains } from 'src/utils/postgrest'
 
 const authStore = useAuthStore()
 const API_BASE = `https://api.boxbuddy.io/boxes/`
@@ -37,8 +38,8 @@ export const useBoxesStore = defineStore('boxes', () => {
       params.set('order', 'date_updated.desc.nullslast,created_time.desc.nullslast')
 
       if (searchTerm?.trim()) {
-        const escaped = searchTerm.trim().replaceAll(',', '\\,')
-        params.set('or', `(name.ilike.*${escaped}*,description.ilike.*${escaped}*)`)
+        const term = ilikeContains(searchTerm.trim())
+        params.set('or', `(name.ilike.${term},description.ilike.${term})`)
       }
 
       const res = await axios.get(`${API_BASE}?${params.toString()}`, { headers: authHeader() })
