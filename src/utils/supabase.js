@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { markServiceUnavailable } from 'src/utils/serviceStatus'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_KEY
@@ -19,6 +20,9 @@ const fetchWithNetworkDiagnostics = async (input, init) => {
         'inactivity) or SUPABASE_URL is wrong. Check the project status in the Supabase dashboard.',
       error,
     )
+    // The device being offline is not a backend outage — leave that to the
+    // calling code's own error handling.
+    if (navigator.onLine !== false) markServiceUnavailable()
     throw error
   }
 }
