@@ -93,6 +93,7 @@
               v-else-if="scanPhase === 'results'"
               :photos="batchPhotos"
               :box-name="boxName"
+              :saving="isSaving"
               @add-items="saveItems"
               @retry-photo="onRetryPhoto"
             />
