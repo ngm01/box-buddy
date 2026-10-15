@@ -3,9 +3,22 @@ import { useAuthStore } from 'src/stores/auth.store'
 
 const API_BASE = (process.env.API_BASE || 'https://api.boxbuddy.io').replace(/\/$/, '')
 
-// Tracks which Supabase user RevenueCat is identified as, so repeated
-// onAuthStateChange events (token refresh, tab focus) are no-ops.
-let configuredForUserId = null
+// RevenueCat's configure() must run once per app session; later user
+// switches go through logIn()/logOut(). identifiedUserId tracks which
+// Supabase user RevenueCat is identified as, so repeated onAuthStateChange
+// events (token refresh, tab focus) are no-ops.
+let isConfigured = false
+let identifiedUserId = null
+
+// onAuthStateChange can fire several events back to back (e.g. at startup),
+// so run SDK calls one at a time; otherwise two could both see an
+// unconfigured SDK and call configure() twice.
+let sdkQueue = Promise.resolve()
+const enqueue = (task) => {
+  const run = sdkQueue.then(task)
+  sdkQueue = run.catch(() => {})
+  return run
+}
 
 export function getPaymentPlatform() {
   return Capacitor.getPlatform() // 'ios' | 'android' | 'web'
@@ -37,26 +50,32 @@ const loadPurchases = async () => {
 // it is the join key the credit-granting webhook resolves accounts with.
 export async function initPayments(user) {
   if (!isNativePayments() || !user?.id) return
-  if (configuredForUserId === user.id) return
+  return enqueue(async () => {
+    if (identifiedUserId === user.id) return
 
-  const { Purchases } = await loadPurchases()
-  if (!configuredForUserId) {
-    await Purchases.configure({ apiKey: revenueCatApiKey(), appUserID: user.id })
-  } else {
-    await Purchases.logIn({ appUserID: user.id })
-  }
-  configuredForUserId = user.id
+    const { Purchases } = await loadPurchases()
+    if (!isConfigured) {
+      await Purchases.configure({ apiKey: revenueCatApiKey(), appUserID: user.id })
+      isConfigured = true
+    } else {
+      await Purchases.logIn({ appUserID: user.id })
+    }
+    identifiedUserId = user.id
+  })
 }
 
 export async function teardownPayments() {
-  if (!isNativePayments() || !configuredForUserId) return
-  configuredForUserId = null
-  try {
-    const { Purchases } = await loadPurchases()
-    await Purchases.logOut()
-  } catch {
-    // logOut throws if the SDK is already anonymous — nothing to undo.
-  }
+  if (!isNativePayments()) return
+  return enqueue(async () => {
+    if (!identifiedUserId) return
+    identifiedUserId = null
+    try {
+      const { Purchases } = await loadPurchases()
+      await Purchases.logOut()
+    } catch {
+      // logOut throws if the SDK is already anonymous — nothing to undo.
+    }
+  })
 }
 
 const purchaseWithStripe = async (packId) => {
