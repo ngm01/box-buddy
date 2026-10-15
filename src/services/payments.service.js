@@ -25,10 +25,12 @@ const revenueCatApiKey = () => {
   return key
 }
 
-// Lazy import keeps RevenueCat out of the web bundle.
+// Lazy import keeps RevenueCat out of the web bundle. Returned wrapped in an
+// object: resolving a promise with the bare plugin proxy makes the runtime
+// probe it for `.then`, which Capacitor rejects as an unimplemented method.
 const loadPurchases = async () => {
   const { Purchases } = await import('@revenuecat/purchases-capacitor')
-  return Purchases
+  return { Purchases }
 }
 
 // Configure/identify RevenueCat. appUserID must equal the Supabase user id —
@@ -37,7 +39,7 @@ export async function initPayments(user) {
   if (!isNativePayments() || !user?.id) return
   if (configuredForUserId === user.id) return
 
-  const Purchases = await loadPurchases()
+  const { Purchases } = await loadPurchases()
   if (!configuredForUserId) {
     await Purchases.configure({ apiKey: revenueCatApiKey(), appUserID: user.id })
   } else {
@@ -50,7 +52,7 @@ export async function teardownPayments() {
   if (!isNativePayments() || !configuredForUserId) return
   configuredForUserId = null
   try {
-    const Purchases = await loadPurchases()
+    const { Purchases } = await loadPurchases()
     await Purchases.logOut()
   } catch {
     // logOut throws if the SDK is already anonymous — nothing to undo.
@@ -80,7 +82,7 @@ const isUserCancellation = (err) =>
   /cancel/i.test(err?.message || '')
 
 const purchaseWithRevenueCat = async (packId) => {
-  const Purchases = await loadPurchases()
+  const { Purchases } = await loadPurchases()
   const { products } = await Purchases.getProducts({ productIdentifiers: [packId] })
   const product = products?.find((p) => p.identifier === packId)
   if (!product) {
@@ -109,7 +111,7 @@ export async function purchasePack(packId) {
 export async function getNativePackPrices(packIds) {
   if (!isNativePayments()) return null
   try {
-    const Purchases = await loadPurchases()
+    const { Purchases } = await loadPurchases()
     const { products } = await Purchases.getProducts({ productIdentifiers: packIds })
     const prices = {}
     for (const product of products || []) {

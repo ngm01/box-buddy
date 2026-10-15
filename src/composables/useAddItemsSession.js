@@ -246,7 +246,9 @@ export function useAddItemsSession({ boxId, onSaved, onClose }) {
 
   const onPhotoAdded = (dataUrl) => {
     batchPhotos.value.push({
-      id: crypto.randomUUID(),
+      // List key only. randomUUID is missing outside secure contexts, which
+      // includes the plain-http dev server the iOS live-reload build loads from.
+      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       dataUrl,
       s3Key: null,
       status: 'pending',

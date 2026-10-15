@@ -99,7 +99,8 @@ export const useBoxesStore = defineStore('boxes', () => {
 
   const updateBox = async (id, boxData) => {
     try {
-      const res = await apiClient.patch(`${API_BASE}/?id=eq.${id}`, boxData, {
+      const payload = 'tags' in boxData ? { ...boxData, tags: normalizeTags(boxData.tags) } : boxData
+      const res = await apiClient.patch(`${API_BASE}/?id=eq.${id}`, payload, {
         headers: authHeader(),
       })
       return res.data
