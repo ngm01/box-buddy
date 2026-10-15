@@ -137,7 +137,7 @@
         <q-card-section>
           <div class="text-subtitle1 text-weight-medium q-mb-md">Edit box</div>
           <q-form @submit.prevent="updateBox" class="q-gutter-y-md">
-            <q-input v-model="boxDraft.name" label="Name" filled />
+            <q-input v-model="boxDraft.name" label="Name" filled :rules="[(val) => !!val?.trim() || 'Box name is required']" />
             <q-input v-model="boxDraft.description" label="Description" type="textarea" filled autogrow />
             <div>
               <div class="text-caption text-grey-7 q-mb-sm">Access level</div>
@@ -417,7 +417,7 @@ const fetchBoxDetails = async () => {
 const updateBox = async () => {
   try {
     await boxesStore.updateBox(box.value.id, {
-      name: boxDraft.value.name,
+      name: boxDraft.value.name.trim(),
       description: boxDraft.value.description,
       access_level: boxDraft.value.access_level,
       tags: boxDraft.value.tags,

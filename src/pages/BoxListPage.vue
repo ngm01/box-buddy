@@ -133,7 +133,7 @@
 
         <q-form @submit.prevent="handleCreateBox">
           <q-card-section class="q-gutter-y-md">
-            <q-input v-model="box.name" label="Box name" filled />
+            <q-input v-model="box.name" label="Box name" filled :rules="[(val) => !!val?.trim() || 'Box name is required']" />
             <q-input v-model="box.description" label="Description" filled type="textarea" autogrow />
             <q-input
               v-model="box.tags"
@@ -271,7 +271,7 @@ const handleCreateBox = async () => {
   }
 
   try {
-    await boxesStore.createBox(box.value)
+    await boxesStore.createBox({ ...box.value, name: box.value.name.trim() })
   } catch (error) {
     const normalized = normalizeApiError(error)
     errorMessage.value = normalized.message
