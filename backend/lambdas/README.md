@@ -12,11 +12,15 @@ pasted/zipped into its Lambda without extra files.
 
 ## Functions & routes
 
-| Directory            | API Gateway route          | Purpose                                             |
-| -------------------- | -------------------------- | --------------------------------------------------- |
-| `payments-checkout/` | `POST /payments/checkout`  | Replaces the stub — creates Stripe Checkout Session |
-| `webhook-stripe/`    | `POST /webhooks/stripe`    | **New route** — grants credits on paid checkout     |
-| `webhook-revenuecat/`| `POST /webhooks/revenuecat`| **New route** — grants credits on native IAP        |
+| Directory            | Deployed as                | API Gateway route          | Purpose                                 |
+| -------------------- | -------------------------- | -------------------------- | --------------------------------------- |
+| `payments-checkout/` | `boxBuddyPaymentsCheckout` | `POST /payments/checkout`  | Creates a Stripe Checkout Session       |
+| `webhook-stripe/`    | `webhookStripe`            | `POST /payments/webhook`   | Grants credits on paid checkout         |
+| `webhook-revenuecat/`| `webhook-revenuecat`       | `POST /webhooks/revenuecat`| Grants credits on native IAP — **route not yet integrated** |
+
+`POST /webhooks/stripe` also exists in API Gateway but has no integration and
+returns 404; it is not the Stripe webhook. Current deploy state is tracked in
+`docs/payments-todo.md` (T17).
 
 Runtime: Node.js 20.x. Dependencies per function (install & zip, or use a layer):
 
@@ -64,7 +68,7 @@ Each `index.mjs` header lists its exact env vars. Summary:
 
 **Stripe** (test mode first): 3 one-time Products/Prices at $4.99 / $14.99 /
 $34.99 → price ids into `payments-checkout` env; webhook endpoint
-`https://api.boxbuddy.io/webhooks/stripe` subscribed to
+`https://api.boxbuddy.io/payments/webhook` subscribed to
 `checkout.session.completed` + `checkout.session.async_payment_succeeded` →
 signing secret into `webhook-stripe` env.
 

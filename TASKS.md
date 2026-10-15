@@ -13,8 +13,10 @@ where they were checked in the source, not because a doc claimed them._
       and returning 500 on every purchase.
 - [x] Stripe webhook confirmed on `https://api.boxbuddy.io/payments/webhook`;
       sandbox purchase grants credits.
-- [ ] T23 only: buy a second pack and confirm **two** distinct `purchase` rows
-      in `credit_transactions` (idempotency sanity check).
+- [ ] T23 only: resend a delivered webhook event from the Stripe dashboard
+      (expect still **one** `purchase` row: idempotency), and buy a second pack
+      (expect **two** distinct rows: different purchases aren't merged). See
+      `docs/payments-todo.md`.
 
 ### Usage counts / plan limits
 
@@ -55,12 +57,12 @@ where they were checked in the source, not because a doc claimed them._
 
 ## Cleanup
 
-- [ ] Delete `src/pages/TestHomePage.vue` — unused placeholder, still present.
+- [x] Delete `src/pages/TestHomePage.vue` — unused placeholder.
 - [ ] Delete `src/scraps/` — leftover Lambda code, still on disk (gitignored).
 - [ ] Delete the orphaned `payments-checkout` Lambda in AWS — a 295-byte
       "Hello from Lambda!" stub, no longer routed anywhere. Keep
       `boxBuddyPaymentsCheckout`.
-- [ ] Delete the stale `yarn.lock` — the project uses npm, and having both
+- [x] Delete the stale `yarn.lock` — the project uses npm, and having both
       confuses CI build-tool detection.
 
 ---

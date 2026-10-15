@@ -147,9 +147,15 @@ package-lock.json node_modules` from inside each folder._
 - [ ] **T22 [You: Stripe/AWS]** If credits didn't appear, debug in this order
       (details in `docs/payments-flow.md` § Debugging): 1. Stripe → Developers → Webhooks → the endpoint → recent deliveries
       (was it sent? what HTTP status came back?) 2. CloudWatch → `/aws/lambda/webhook-stripe` logs 3. Supabase → Table Editor → `credit_transactions`
-- [ ] **T23 [You]** Buy a second pack and confirm the ledger shows two separate
-      `purchase` rows in `credit_transactions` (idempotency sanity check: two
-      purchases = two rows, not one).
+- [ ] **T23 [You]** Two checks on the ledger (`credit_transactions`), which
+      test different things:
+      - **Idempotency** — the same event delivered twice grants once. Stripe →
+        Webhooks → the endpoint → a delivered `checkout.session.completed`
+        event → **Resend**. Expect a 200 with `"granted": false` and still
+        exactly one `purchase` row for that `reference_id`.
+      - **No false deduplication** — two *different* purchases are not merged.
+        Buy a second pack; expect two `purchase` rows with different
+        `reference_id`s.
 
 ## Phase 5 — iOS (RevenueCat + App Store Connect, sandbox)
 
@@ -215,8 +221,8 @@ the ASC items early.
 **Current status (2026-09-16):** **The web purchase flow works end to end in
 test mode** — a sandbox card purchase on `dev.boxbuddy.io` redirects to the
 success page and credits land in the balance. Phases 0–4 are effectively done;
-only **T23** (buy a second pack, confirm two distinct `purchase` rows) is left
-to close Phase 4.
+only **T23** (resend a webhook event and buy a second pack, checking the
+ledger after each) is left to close Phase 4.
 
 Next up is a choice between two tracks:
 
