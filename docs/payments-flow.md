@@ -80,7 +80,7 @@ Step by step, with the data that moves:
 5. Stripe returns a hosted checkout URL; the Lambda returns it to the browser.
 6. The browser navigates to Stripe's page; the user pays there. Card data
    never touches our code.
-7. Stripe fires `checkout.session.completed` at `POST /webhooks/stripe`
+7. Stripe fires `checkout.session.completed` at `POST /payments/webhook`
    (configured in the Stripe dashboard). This happens server-to-server,
    independent of the user's browser.
 8. `webhook-stripe` verifies the `Stripe-Signature` header against
@@ -167,7 +167,7 @@ test purchases grant real credits to your own account, which is the point).
 3. Deploy/configure `payments-checkout`: `sk_test_...`, the 3 price ids,
    `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `WEB_APP_URL`.
 4. Stripe (test mode): add webhook endpoint
-   `https://api.boxbuddy.io/webhooks/stripe` subscribed to
+   `https://api.boxbuddy.io/payments/webhook` subscribed to
    `checkout.session.completed` + `checkout.session.async_payment_succeeded`
    → copy `whsec_...`.
 5. Deploy/configure `webhook-stripe`: `sk_test_...`, `whsec_...`,

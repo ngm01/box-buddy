@@ -126,7 +126,7 @@
         <q-separator />
 
         <div class="row q-col-gutter-sm q-pa-md">
-          <div class="col-4">
+          <div v-if="isOwner" class="col">
             <q-btn
               color="primary"
               icon="add"
@@ -138,7 +138,7 @@
               @click="showAddItemDialog"
             />
           </div>
-          <div class="col-4">
+          <div v-if="isOwner" class="col">
             <q-btn
               text-color="primary"
               icon="edit"
@@ -150,7 +150,7 @@
               @click="startEditingBox"
             />
           </div>
-          <div class="col-4">
+          <div class="col">
             <q-btn
               text-color="primary"
               icon="qr_code_2"
@@ -170,7 +170,7 @@
         <q-card-section>
           <div class="text-subtitle1 text-weight-medium q-mb-md">Edit box</div>
           <q-form @submit.prevent="updateBox" class="q-gutter-y-md">
-            <q-input v-model="boxDraft.name" label="Name" filled />
+            <q-input v-model="boxDraft.name" label="Name" filled :rules="[(val) => !!val?.trim() || 'Box name is required']" />
             <q-input v-model="boxDraft.description" label="Description" type="textarea" filled autogrow />
             <div>
               <div class="text-caption text-grey-7 q-mb-sm">Access level</div>
@@ -213,7 +213,7 @@
         </q-card-section>
       </q-card>
 
-      <AddItemDialog :boxId="box.id" :boxName="box.name" ref="addItemDialog" @item-added="fetchItems" />
+      <AddItemDialog v-if="isOwner" :boxId="box.id" :boxName="box.name" ref="addItemDialog" @item-added="fetchItems" />
       <QRCodeDialog ref="qrCodeDialog" :box="box" />
 
       <!-- Items section -->
@@ -273,7 +273,7 @@
                   </span>
                 </div>
               </div>
-              <div class="row items-start q-gutter-x-xs q-ml-sm flex-shrink-0">
+              <div v-if="isOwner" class="row items-start q-gutter-x-xs q-ml-sm flex-shrink-0">
                 <q-btn flat round dense icon="edit" color="grey-6" @click.stop="openEditItemDialog(item)">
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
@@ -330,17 +330,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 import { useBoxesStore } from 'src/stores/boxes.store'
 import { useItemsStore } from 'src/stores/items.store'
+import { useAuthStore } from 'src/stores/auth.store'
 import { supabase } from 'src/utils/supabase'
+import { getBoxPath, getBoxQrValue } from 'src/utils/boxQr'
 
 const route = useRoute()
+const router = useRouter()
 const boxesStore = useBoxesStore()
 const itemsStore = useItemsStore()
+const authStore = useAuthStore()
 const box = ref(null)
 const boxDraft = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const addItemDialog = ref(null)
@@ -350,6 +354,10 @@ const isEditing = ref(false)
 const isLoading = ref(false)
 const pageState = ref('ready')
 const itemSearch = ref('')
+
+// Public and shared boxes are readable by other accounts, but only the owner
+// may change them (the database rejects or silently ignores anyone else).
+const isOwner = computed(() => !!box.value && box.value.user_id === authStore.user?.id)
 let itemSearchDebounce = null
 
 const editItemDialog = ref(false)
@@ -449,14 +457,24 @@ const fetchBoxDetails = async () => {
 
 const updateBox = async () => {
   try {
+    const name = boxDraft.value.name.trim()
+    const renamed = name !== box.value.name
     await boxesStore.updateBox(box.value.id, {
-      name: boxDraft.value.name,
+      name,
       description: boxDraft.value.description,
       access_level: boxDraft.value.access_level,
       tags: boxDraft.value.tags,
+      // The box URL is built from its name, so keep the stored one in step.
+      ...(renamed ? { qr_code_url: getBoxQrValue({ ...box.value, name }) } : {}),
     })
-    await fetchBoxDetails()
     isEditing.value = false
+    if (renamed) {
+      // The current URL names the old box, which no longer resolves; the
+      // route watcher reloads the page at the new one.
+      await router.replace(getBoxPath(box.value.display_name, name))
+    } else {
+      await fetchBoxDetails()
+    }
   } catch (error) {
     console.error('Error updating box:', error)
   }
@@ -505,15 +523,30 @@ const deleteItem = async () => {
   }
 }
 
-onMounted(async () => {
+const loadPage = async () => {
   isLoading.value = true
+  isEditing.value = false
+  box.value = null
+  items.value = []
   try {
     await fetchBoxDetails()
     await fetchItems()
   } finally {
     isLoading.value = false
   }
-})
+}
+
+onMounted(loadPage)
+
+// Vue Router reuses this component when only the params change (a rename,
+// or a deep link opened while another box is showing), so onMounted alone
+// would leave the previous box on screen.
+watch(
+  () => [route.params.display_name, route.params.box_name],
+  ([displayName, boxName]) => {
+    if (displayName && boxName) loadPage()
+  },
+)
 </script>
 
 <style scoped>
