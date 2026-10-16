@@ -2,7 +2,7 @@
   <q-page class="q-pa-md">
     <!-- Heading row -->
     <div class="row items-center q-mb-md">
-      <span class="text-h5 text-weight-medium col">Your boxes</span>
+      <span class="text-h5 text-weight-bold col">Your boxes</span>
       <q-badge v-if="!isLoading" color="grey-3" text-color="grey-7" class="q-ml-sm">
         {{ boxes.length }} boxes
       </q-badge>
@@ -47,15 +47,15 @@
         class="box-card cursor-pointer"
         @click="goToBoxDetail(box.display_name, box.name)"
       >
-        <q-card-section class="row items-start no-wrap q-pa-md">
+        <q-card-section class="row items-start no-wrap q-py-md q-pl-md q-pr-xs">
           <!-- Box icon -->
           <q-icon name="archive" size="36px" color="grey-5" class="q-mr-md flex-shrink-0 q-mt-xs" />
 
           <!-- Content -->
           <div class="col overflow-hidden">
             <div class="row items-baseline q-mb-xs">
-              <span class="text-subtitle1 text-weight-medium">{{ box.name }}</span>
-              <span class="text-caption text-grey-6 q-ml-xs">&middot; {{ itemCounts[box.id] ?? 0 }} items</span>
+              <span class="text-subtitle1 text-weight-bold">{{ box.name }}</span>
+              <span class="text-body2 text-grey-6 q-ml-xs">&middot; {{ itemCounts[box.id] ?? 0 }} items</span>
             </div>
             <div v-if="box.description" class="text-body2 text-grey-8 bb-clamp2 q-mb-xs">
               {{ box.description }}
@@ -86,13 +86,18 @@
             </div>
           </div>
 
-          <!-- Actions -->
-          <div class="column items-center q-gutter-y-xs q-ml-sm flex-shrink-0" @click.stop>
-            <q-btn flat round dense icon="delete" color="grey-5" @click="confirmDelete(box.id)">
-              <q-tooltip>Delete</q-tooltip>
-            </q-btn>
-            <q-btn flat round dense icon="chevron_right" color="grey-5" @click="goToBoxDetail(box.display_name, box.name)" />
-          </div>
+          <!-- Delete (whole card opens the box) -->
+          <q-btn
+            flat
+            round
+            icon="delete_outline"
+            color="grey-6"
+            class="q-ml-xs flex-shrink-0 box-card__delete"
+            aria-label="Delete box"
+            @click.stop="confirmDelete(box.id)"
+          >
+            <q-tooltip>Delete</q-tooltip>
+          </q-btn>
         </q-card-section>
       </q-card>
     </div>
@@ -326,6 +331,9 @@ onMounted(async () => {
 }
 .box-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.box-card__delete {
+  margin-top: -6px;
 }
 
 .access-option {

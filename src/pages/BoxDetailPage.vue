@@ -15,11 +15,11 @@
             <q-skeleton type="text" width="45%" class="q-mt-xs" />
           </div>
         </q-card-section>
-        <q-card-actions class="q-pa-md q-pt-none">
-          <q-skeleton type="QBtn" width="110px" class="q-mr-sm" />
-          <q-skeleton type="QBtn" width="120px" class="q-mr-sm" />
-          <q-skeleton type="QBtn" width="130px" />
-        </q-card-actions>
+        <div class="row q-col-gutter-sm q-pa-md q-pt-none">
+          <div v-for="i in 3" :key="i" class="col-4">
+            <q-skeleton height="68px" />
+          </div>
+        </div>
       </q-card>
       <!-- Items skeleton -->
       <q-skeleton type="text" width="12%" height="22px" class="q-mb-sm" />
@@ -87,7 +87,7 @@
           <q-icon name="archive" size="44px" color="grey-5" class="q-mr-md flex-shrink-0 q-mt-xs" />
           <div class="col overflow-hidden">
             <div class="row items-center q-mb-xs">
-              <h1 class="text-h6 text-weight-medium q-ma-none q-mr-sm">{{ box.name }}</h1>
+              <h1 class="text-h5 text-weight-bold q-ma-none q-mr-sm">{{ box.name }}</h1>
               <q-chip dense size="sm" :icon="box.access_level === 'private' ? 'lock' : 'language'" color="grey-2" text-color="grey-7">
                 {{ box.access_level === 'private' ? 'Private' : 'Public' }}
               </q-chip>
@@ -125,11 +125,44 @@
 
         <q-separator />
 
-        <q-card-actions class="q-pa-md q-gutter-sm">
-          <q-btn color="primary" icon="add" label="Add item" unelevated @click="showAddItemDialog" />
-          <q-btn outline color="primary" icon="edit" label="Edit details" @click="startEditingBox" />
-          <q-btn outline color="primary" icon="qr_code" label="View QR code" @click="showQRCodeDialog" />
-        </q-card-actions>
+        <div class="row q-col-gutter-sm q-pa-md">
+          <div class="col-4">
+            <q-btn
+              color="primary"
+              icon="add"
+              label="Add item"
+              stack
+              no-caps
+              unelevated
+              class="full-width action-tile"
+              @click="showAddItemDialog"
+            />
+          </div>
+          <div class="col-4">
+            <q-btn
+              text-color="primary"
+              icon="edit"
+              label="Edit"
+              stack
+              no-caps
+              unelevated
+              class="full-width action-tile action-tile--tinted"
+              @click="startEditingBox"
+            />
+          </div>
+          <div class="col-4">
+            <q-btn
+              text-color="primary"
+              icon="qr_code_2"
+              label="QR code"
+              stack
+              no-caps
+              unelevated
+              class="full-width action-tile action-tile--tinted"
+              @click="showQRCodeDialog"
+            />
+          </div>
+        </div>
       </q-card>
 
       <!-- Edit box form -->
@@ -186,7 +219,7 @@
       <!-- Items section -->
       <div class="q-mt-lg">
         <div class="row items-center q-mb-md">
-          <h2 class="text-subtitle1 text-weight-medium q-ma-none col">Items</h2>
+          <h2 class="text-h6 text-weight-bold q-ma-none col">Items</h2>
           <span class="text-caption text-grey-6">{{ items.length }} in this box</span>
         </div>
 
@@ -489,6 +522,15 @@ onMounted(async () => {
 }
 .no-underline-link:hover {
   text-decoration: underline;
+}
+
+.action-tile {
+  min-height: 68px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.action-tile--tinted {
+  background-color: #f0f6fd;
 }
 
 .access-option {
