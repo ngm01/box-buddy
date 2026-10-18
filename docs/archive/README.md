@@ -5,17 +5,10 @@ looking for work to do.** These are finished or superseded planning docs, kept
 only for the rationale they record. Their checkboxes were never kept up to
 date — unticked items in here are almost always shipped work, not a backlog.
 
-Archived 2026-09-16.
+Archived 2026-09-16, with a second batch on 2026-10-17.
 
-**Live task docs are:**
-
-| File                              | Purpose                                        |
-| --------------------------------- | ---------------------------------------------- |
-| `TASKS.md` (repo root)            | MVP blockers, gaps, cleanup                    |
-| `docs/payments-todo.md`           | Payments checklist (T1–T36)                    |
-| `docs/payments-flow.md`           | Reference: how the purchase flows fit together |
-| `docs/deploy-dev-environment.md`  | What's deployed on `dev.boxbuddy.io`           |
-| `docs/deep-links-todo.md`         | Deep linking — still open                      |
+**The only live task list is `TODO.md` at the repo root.** Reference docs
+(not task lists): `docs/payments-flow.md`, `docs/deploy-dev-environment.md`.
 
 ---
 
@@ -30,6 +23,11 @@ Archived 2026-09-16.
 | `TASKS_qr_refactor.md`        | Complete — 26 of 26 done.                                                    |
 | `TASKS_refactor_add_items.md` | 33 of 35 done. The two leftovers (focus management on modal open, unit tests) were carried into `TASKS.md`. |
 | `TASK_fix_uploads_presign.md` | A debugging checklist for a presign bug that is long fixed; uploads work.     |
+| `TASKS_mvp.md`                | Was the root `TASKS.md`. Open items moved to `TODO.md` on 2026-10-17.        |
+| `payments-todo.md`            | Payments checklist T1–T36. T1–T21 are done; the open ones moved to `TODO.md`. Still the record of setup details (env var names, route table). |
+| `deep-links-todo.md`          | DL1–DL7. DL5 (dead `boxbuddy://` branch) and DL6 (root `ios/`) are resolved; the rest moved to `TODO.md`. |
+| `handoff_2026-09-18.md`       | Session handoff for the dev-environment and Stripe work. Its next steps moved to `TODO.md`. |
 
-These files stay gitignored — the root `.gitignore` matches `TASK*.md` at any
-depth, so moving them here kept them out of version control.
+Most of these are gitignored: the root `.gitignore` matches `TASK*.md` at any
+depth. The exceptions are `TASKS_mvp.md`, `payments-todo.md` and
+`handoff_2026-09-18.md`, which were already tracked and stay tracked.

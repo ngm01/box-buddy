@@ -19,8 +19,8 @@ pasted/zipped into its Lambda without extra files.
 | `webhook-revenuecat/`| `webhook-revenuecat`       | `POST /webhooks/revenuecat`| Grants credits on native IAP — **route not yet integrated** |
 
 `POST /webhooks/stripe` also exists in API Gateway but has no integration and
-returns 404; it is not the Stripe webhook. Current deploy state is tracked in
-`docs/payments-todo.md` (T17).
+returns 404; it is not the Stripe webhook. Open deploy work is in `TODO.md`;
+the T17 route history is in `docs/archive/payments-todo.md`.
 
 Runtime: Node.js 20.x. Dependencies per function (install & zip, or use a layer):
 

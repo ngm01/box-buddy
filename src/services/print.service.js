@@ -7,6 +7,16 @@ const NativePrint = registerPlugin('Print')
 
 const PRINTING_CLASS = 'bb-printing'
 
+// Native only: prints an image (data URL) at an exact physical size. Used for
+// labels because WKWebView's print formatter renders the WebView itself and
+// came out blank.
+export async function printImage({ dataUrl, widthMm, heightMm, jobName = 'BoxBuddy' }) {
+  if (!Capacitor.isPluginAvailable('Print')) {
+    throw new Error('Printing is not available in this version of the app.')
+  }
+  return NativePrint.printImage({ image: dataUrl, widthMm, heightMm, jobName })
+}
+
 // Prints whatever is inside `.bb-print-root` (see src/css/app.scss): the class
 // on <html> hides the rest of the page under @media print. The class only
 // matters for print media, so it is harmless if afterprint never fires.

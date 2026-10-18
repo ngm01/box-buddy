@@ -126,7 +126,7 @@ import QRCode from 'qrcode'
 import QRCodeCanvas from './QRCodeCanvas.vue'
 import BoxQrLabel from './BoxQrLabel.vue'
 import { getBoxQrValue, getBoxShortIdentifier } from 'src/utils/boxQr'
-import { printDocument } from 'src/services/print.service'
+import { printDocument, printImage } from 'src/services/print.service'
 
 const $q = useQuasar()
 
@@ -195,13 +195,29 @@ const downloadQRCode = async () => {
   await downloadFile(blob, `${props.box.name || 'box'}-qr.png`)
 }
 
+// Native prints a rendered PNG at label size; the web prints `.bb-print-root`.
+const printNative = async (variant, jobName) => {
+  if (variant === 'qr') {
+    const dataUrl = await QRCode.toDataURL(qrValue.value, {
+      errorCorrectionLevel: 'H',
+      margin: 1,
+      width: 600,
+    })
+    return printImage({ dataUrl, widthMm: 40, heightMm: 40, jobName })
+  }
+  const canvas = await createLabelCanvas()
+  return printImage({ dataUrl: canvas.toDataURL('image/png'), widthMm: 63.5, heightMm: 38.1, jobName })
+}
+
 const printVariantOf = async (variant) => {
+  const jobName = `${props.box.name || 'Box'} ${variant === 'qr' ? 'QR code' : 'label'}`
   printVariant.value = variant
   await nextTick()
   await printLabelRef.value?.whenReady()
   $q.notify({ message: 'Sending to printer…', timeout: 1500 })
   try {
-    await printDocument({ jobName: `${props.box.name || 'Box'} ${variant === 'qr' ? 'QR code' : 'label'}` })
+    if (isNative) await printNative(variant, jobName)
+    else await printDocument({ jobName })
   } catch (err) {
     console.error('Print failed:', err)
     $q.notify({ type: 'negative', message: err.message || 'Printing failed.' })

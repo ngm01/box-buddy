@@ -63,18 +63,24 @@ export default defineConfig((ctx) => {
       // extendViteConf (viteConf) {},
       // viteVuePluginOptions: {},
 
-      vitePlugins: [
-        [
-          'vite-plugin-checker',
-          {
-            eslint: {
-              lintCommand: 'eslint -c ./eslint.config.js "./src*/**/*.{js,mjs,cjs,vue}"',
-              useFlatConfig: true,
-            },
-          },
-          { server: false },
-        ],
-      ],
+      // The ESLint checker is skipped in Capacitor dev: its worker thread's
+      // file watcher (fsevents 2.3.3) calls abort() when torn down, which
+      // kills the devserver right after `capacitor sync` and leaves the
+      // iOS app white/black-screened. Lint still runs on web dev and in CI.
+      vitePlugins: ctx.mode.capacitor && ctx.dev
+        ? []
+        : [
+            [
+              'vite-plugin-checker',
+              {
+                eslint: {
+                  lintCommand: 'eslint -c ./eslint.config.js "./src*/**/*.{js,mjs,cjs,vue}"',
+                  useFlatConfig: true,
+                },
+              },
+              { server: false },
+            ],
+          ],
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#devserver
