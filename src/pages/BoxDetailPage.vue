@@ -381,16 +381,9 @@ const fetchBoxDetails = async () => {
       return
     }
 
-    const { data: accessData, error: accessError } = await supabase.rpc('get_box_access_status', {
-      p_display_name: display_name,
-      p_box_name: box_name,
-    })
+    const access = await boxesStore.getBoxAccessStatus(display_name, box_name)
 
-    if (accessError) throw accessError
-
-    const access = Array.isArray(accessData) ? accessData[0] : accessData
-
-    if (!access || access.status_code === 404) {
+    if (access.status_code === 404) {
       pageState.value = 'not_found'
       return
     }

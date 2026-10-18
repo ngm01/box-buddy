@@ -46,7 +46,7 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>We need camera access to scan items.</string>
+	<string>Box Buddy uses the camera to scan items and box QR labels.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need photo library access to save scanned items.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
