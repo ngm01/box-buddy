@@ -1,5 +1,6 @@
 <template>
   <router-view />
+  <ServiceUnavailable v-if="serviceUnavailable" />
 </template>
 
 <script setup>
@@ -7,6 +8,8 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { App as CapacitorApp } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
+import ServiceUnavailable from 'src/components/ServiceUnavailable.vue'
+import { serviceUnavailable } from 'src/utils/serviceStatus'
 
 const router = useRouter()
 let appUrlOpenListener

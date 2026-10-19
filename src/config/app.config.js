@@ -2,9 +2,9 @@ const CANONICAL_WEB_BASE_URL = 'https://boxbuddy.io'
 
 // Origins a production build may encode into QR codes. QR codes get printed and
 // stuck on physical boxes, so a misconfigured build must never be able to bake
-// in a dev or preview URL — but the test environment is a deliberate, known
-// destination. Drop the test origin from this list once it is retired.
-const ALLOWED_PROD_BASE_URLS = [CANONICAL_WEB_BASE_URL, 'https://test.boxbuddy.io']
+// in a localhost or preview URL — but the dev environment is a deliberate, known
+// destination. Drop the dev origin from this list once it is retired.
+const ALLOWED_PROD_BASE_URLS = [CANONICAL_WEB_BASE_URL, 'https://dev.boxbuddy.io']
 
 const normalizeBaseUrl = (value) => {
   if (!value) return ''

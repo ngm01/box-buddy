@@ -7,6 +7,7 @@ import {
 } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth.store'
 import { useCreditsStore } from 'src/stores/credits.store'
+import { serviceUnavailable } from 'src/utils/serviceStatus'
 import routes from './routes'
 
 export default defineRouter(function (/* { store, ssrContext } */) {
@@ -25,6 +26,13 @@ export default defineRouter(function (/* { store, ssrContext } */) {
   Router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
     const valid = await authStore.hasValidSession()
+
+    // Backend is down: stay put rather than bouncing a signed-in user to
+    // /login. App.vue is showing the ServiceUnavailable screen.
+    if (serviceUnavailable.value) {
+      next(false)
+      return
+    }
 
     if (to.meta.requiresAuth && !valid) {
       next({ path: '/login', query: { redirect: to.fullPath } })

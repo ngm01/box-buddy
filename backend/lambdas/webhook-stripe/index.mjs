@@ -1,4 +1,4 @@
-// POST /webhooks/stripe — grants credits after Stripe confirms payment.
+// POST /payments/webhook — grants credits after Stripe confirms payment.
 // The client never grants credits; this webhook is the only web-purchase
 // grant path, and it is idempotent via grant_purchased_credits().
 //

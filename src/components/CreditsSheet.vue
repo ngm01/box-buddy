@@ -150,7 +150,11 @@ const handlePurchase = async (packId) => {
   try {
     const result = await creditsStore.purchasePack(packId)
     if (result.status === 'purchased') {
-      $q.notify({ type: 'positive', message: `Credits added! New balance: ${result.balance}` })
+      $q.notify(
+        result.confirmed
+          ? { type: 'positive', message: `Credits added! New balance: ${result.balance}` }
+          : { type: 'info', message: 'Purchase complete — your credits will appear shortly.' },
+      )
     } else if (result.status === 'redirect') {
       // Page is navigating to Stripe Checkout — keep the spinner until unload.
       redirecting = true

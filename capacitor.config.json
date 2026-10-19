@@ -1,9 +1,0 @@
-{
-  "appId": "com.boxbuddy.app",
-  "appName": "box-buddy",
-  "webDir": "dist/spa",
-  "bundledWebRuntime": false,
-  "ios": {
-    "contentInset": "always"
-  }
-}

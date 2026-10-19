@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { supabase } from 'src/utils/supabase'
+import { ilikeContains } from 'src/utils/postgrest'
 
 const normalizeTags = (tags) => {
   if (Array.isArray(tags)) {
@@ -26,8 +27,8 @@ export const useItemsStore = defineStore('items', () => {
       .order('created_time', { ascending: false, nullsFirst: false })
 
     if (searchTerm?.trim()) {
-      const term = searchTerm.trim()
-      query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%`)
+      const term = ilikeContains(searchTerm.trim())
+      query = query.or(`name.ilike.${term},description.ilike.${term}`)
     }
 
     const { data, error } = await query
@@ -35,12 +36,13 @@ export const useItemsStore = defineStore('items', () => {
     return data || []
   }
 
-  const createItem = async (itemData) => {
+  // One request, so PostgREST inserts every row in a single statement:
+  // either all items are saved or none are, and a retry can't duplicate.
+  const createItems = async (itemsData) => {
     const { data, error } = await supabase
       .from('items')
-      .insert({ ...itemData, tags: normalizeTags(itemData.tags) })
+      .insert(itemsData.map((item) => ({ ...item, tags: normalizeTags(item.tags) })))
       .select()
-      .single()
     if (error) throw error
     return data
   }
@@ -61,5 +63,5 @@ export const useItemsStore = defineStore('items', () => {
     if (error) throw error
   }
 
-  return { fetchItemsByBox, createItem, updateItem, deleteItem }
+  return { fetchItemsByBox, createItems, updateItem, deleteItem }
 })

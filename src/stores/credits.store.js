@@ -68,8 +68,10 @@ export const useCreditsStore = defineStore('credits', () => {
     const result = await launchPurchase(packId)
 
     if (result.status === 'purchased') {
-      const { balance: newBalance } = await pollForCreditGrant()
-      return { status: 'purchased', balance: newBalance }
+      // confirmed: false means the webhook grant hasn't landed yet (Apple
+      // sandbox can take longer than the poll window) — not a failure.
+      const { confirmed, balance: newBalance } = await pollForCreditGrant()
+      return { status: 'purchased', confirmed, balance: newBalance }
     }
 
     // 'redirect' (page is navigating to Stripe Checkout) or 'cancelled'

@@ -5,9 +5,13 @@
   "author": "ngm01 <nathaniel.g.moore@gmail.com>",
   "private": true,
   "dependencies": {
-    "@capacitor/app": "^6.0.0",
-    "@capacitor/cli": "^6.0.0",
-    "@capacitor/core": "^6.0.0",
-    "@capacitor/ios": "^6.0.0"
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/barcode-scanner": "^2.0.1",
+    "@capacitor/camera": "^7.0.0",
+    "@capacitor/cli": "^7.2.0",
+    "@capacitor/core": "^7.2.0",
+    "@capacitor/ios": "^7.1.0",
+    "@capacitor/status-bar": "^7.0.1",
+    "@revenuecat/purchases-capacitor": "^11.3.2"
   }
 }

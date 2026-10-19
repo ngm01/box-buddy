@@ -100,16 +100,15 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   photos: { type: Array, required: true },
   boxName: { type: String, default: '' },
+  saving: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['add-items', 'retry-photo'])
-
-const saving = ref(false)
 
 const donePhotos = computed(() => props.photos.filter((p) => p.status === 'done'))
 const errorPhotos = computed(() => props.photos.filter((p) => p.status === 'error'))

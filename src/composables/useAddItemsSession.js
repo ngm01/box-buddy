@@ -215,13 +215,16 @@ export function useAddItemsSession({ boxId, onSaved, onClose }) {
       if (photo.status !== 'pending') continue
 
       try {
-        photo.status = 'uploading'
-        const { uploadUrl, key } = await presignUpload()
-        await uploadToS3(uploadUrl, photo.dataUrl)
-        photo.s3Key = key
+        // A photo re-queued after a 402 is already uploaded.
+        if (!photo.s3Key) {
+          photo.status = 'uploading'
+          const { uploadUrl, key } = await presignUpload()
+          await uploadToS3(uploadUrl, photo.dataUrl)
+          photo.s3Key = key
+        }
 
         photo.status = 'identifying'
-        const result = await callIdentify(key, false)
+        const result = await callIdentify(photo.s3Key, false)
 
         photo.items = normalizeDetectedItems(result)
         photo.status = 'done'
@@ -230,6 +233,9 @@ export function useAddItemsSession({ boxId, onSaved, onClose }) {
         }
       } catch (err) {
         if (err.status === 402) {
+          // Put this photo back in the queue so a top-up resumes with it
+          // rather than skipping it as already in progress.
+          photo.status = 'pending'
           creditsStore.updateBalance(err.body?.balance ?? 0)
           scanPhase.value = 'out_of_credits'
           return
@@ -246,7 +252,9 @@ export function useAddItemsSession({ boxId, onSaved, onClose }) {
 
   const onPhotoAdded = (dataUrl) => {
     batchPhotos.value.push({
-      id: crypto.randomUUID(),
+      // List key only. randomUUID is missing outside secure contexts, which
+      // includes the plain-http dev server the iOS live-reload build loads from.
+      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       dataUrl,
       s3Key: null,
       status: 'pending',
@@ -299,17 +307,17 @@ export function useAddItemsSession({ boxId, onSaved, onClose }) {
   // ── Persistence ────────────────────────────────────────────────────────────
 
   const persist = async (items) => {
-    if (!items.length) return
+    if (!items.length || isSaving.value) return
     isSaving.value = true
     try {
-      for (const item of items) {
-        await itemsStore.createItem({
+      await itemsStore.createItems(
+        items.map((item) => ({
           name: item.name,
           description: item.description || '',
           tags: item.tags || [],
           box_id: boxId(),
-        })
-      }
+        })),
+      )
       onSaved()
       onClose()
     } catch (error) {
