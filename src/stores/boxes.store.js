@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import apiClient from 'src/utils/apiClient'
 import { useAuthStore } from './auth.store'
 import { getQrBaseUrlOrThrow } from 'src/config/app.config'
+import { supabase } from 'src/utils/supabase'
 import { getBoxPath } from 'src/utils/boxQr'
 import { ilikeContains } from 'src/utils/postgrest'
 
@@ -109,9 +110,23 @@ export const useBoxesStore = defineStore('boxes', () => {
     }
   }
 
+  // Resolves a box URL's owner/name pair without leaking whether a private box exists.
+  // Returns { status_code: 200 | 403 | 404, box_id }.
+  const getBoxAccessStatus = async (displayName, boxName) => {
+    const { data, error } = await supabase.rpc('get_box_access_status', {
+      p_display_name: displayName,
+      p_box_name: boxName,
+    })
+
+    if (error) throw error
+
+    const access = Array.isArray(data) ? data[0] : data
+    return access ?? { status_code: 404, box_id: null }
+  }
+
   const reset = () => {
     boxes.value = []
   }
 
-  return { boxes, fetchBoxes, createBox, updateBox, deleteBox, reset }
+  return { boxes, fetchBoxes, createBox, updateBox, deleteBox, getBoxAccessStatus, reset }
 })

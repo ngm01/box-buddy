@@ -108,4 +108,4 @@ const getQrBaseUrlOrThrow = () => {
   return safeWebBaseUrl
 }
 
-export { CANONICAL_WEB_BASE_URL, safeWebBaseUrl, getQrBaseUrlOrThrow }
+export { CANONICAL_WEB_BASE_URL, ALLOWED_PROD_BASE_URLS, safeWebBaseUrl, getQrBaseUrlOrThrow }

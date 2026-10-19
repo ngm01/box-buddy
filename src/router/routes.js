@@ -10,8 +10,9 @@ const routes = [
         component: () => import('src/pages/BoxDetailPage.vue'),
       },
       {
-        path: '/settings/billing',
-        component: () => import('src/pages/settings/BillingSettingsPage.vue'),
+        path: '/account',
+        component: () => import('src/pages/AccountPage.vue'),
+        meta: { title: 'Account' },
       },
       {
         path: '/purchase/success',
@@ -22,6 +23,12 @@ const routes = [
         component: () => import('src/pages/PurchaseResultPage.vue'),
       },
     ],
+    meta: { requiresAuth: true },
+  },
+  {
+    // Full-screen camera view, so it sits outside MainLayout's header and bottom nav.
+    path: '/scan',
+    component: () => import('src/pages/ScanPage.vue'),
     meta: { requiresAuth: true },
   },
   {
