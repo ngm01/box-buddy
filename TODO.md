@@ -1,7 +1,7 @@
 # Box Buddy TODO
 
 _The single live task list. Verified against the code, git, AWS and the live
-endpoints on 2026-10-17. It replaces `TASKS.md`, `docs/payments-todo.md`,
+endpoints on 2026-10-17; updated 2026-10-20. It replaces `TASKS.md`, `docs/payments-todo.md`,
 `docs/deep-links-todo.md` and `docs/handoff.md`, which are now in
 `docs/archive/`._
 
@@ -32,8 +32,6 @@ Not tasks yet. Each needs a decision before it becomes work.
 
 ## 1. MVP gaps in the app
 
-- [ ] **[Claude]** Mobile in-app QR code scanner that opens the item directly.
-
 - [ ] **[Claude]** Call `setUsageCounts()` after boxes/items are fetched. It's
       never called, so `boxCount`/`itemCountTotal` stay 0 and the frontend
       never enforces plan limits (only the backend 402 does). Also remove the
@@ -42,15 +40,18 @@ Not tasks yet. Each needs a decision before it becomes work.
 - [ ] **[Claude]** Wrap the "Add Item" button (`src/pages/BoxDetailPage.vue:138`)
       in `<PaywallGate feature="items">`. Box creation is gated, but item
       creation isn't.
-- [ ] **[Claude]** Account settings page: change email/password, delete
-      account. `src/pages/settings/` currently has only `BillingSettingsPage.vue`.
+- [ ] **[Claude]** Account management on `/account` (`src/pages/AccountPage.vue`):
+      change email/password, delete account. The page currently only logs out.
 - [ ] **[Claude]** Keyboard navigation through the add-items form fields.
       (Focus-on-open is done: the name input autofocuses in
       `AddItemsDesktopDialog.vue`.)
-- [ ] **[You]** Decide: hide the paywall's upgrade button and billing-portal
-      link for MVP, or accept that they 404. Subscriptions are deliberately
-      stubbed (credit packs only, see `docs/archive/TASKS_payments_plan.md`),
-      so `/billing/*` doesn't exist.
+- [ ] **[You]** Decide: hide the paywall's "Upgrade" button
+      (`src/components/paywall/PaywallModal.vue`) for MVP, or accept that it
+      404s. Subscriptions are deliberately stubbed (credit packs only, see
+      `docs/archive/TASKS_payments_plan.md`), so `/billing/*` doesn't exist.
+      The billing portal link went away with the Billing page in PR #35;
+      `createBillingPortalSession` in `src/billing/billing.service.js` is now
+      unused.
 
 ## 2. Unverified, needs a database check
 
@@ -167,6 +168,13 @@ The apex doesn't respond yet, so none of these can run.
       `public/.well-known/assetlinks.json` once a release keystore exists.
 
 ---
+
+## Done
+
+- [x] Mobile bottom nav with an in-app QR scanner (`/scan`) that opens the
+      scanned box, plus an Account page. PR #35, merged 2026-10-20.
+- [x] iOS printing of QR codes and full labels. Commit `7c9444c`, confirmed
+      on device 2026-10-18.
 
 ## Notes that still matter
 
