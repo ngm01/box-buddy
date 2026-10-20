@@ -320,6 +320,10 @@ export function useAddItemsSession({ boxId, onSaved, onClose }) {
       )
       onSaved()
       onClose()
+      $q.notify({
+        type: 'positive',
+        message: `${items.length} item${items.length !== 1 ? 's' : ''} saved`,
+      })
     } catch (error) {
       console.error('Error saving items:', error)
       $q.notify({ type: 'negative', message: 'Failed to save items. Please try again.' })

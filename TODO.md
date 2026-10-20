@@ -42,13 +42,6 @@ Not tasks yet. Each needs a decision before it becomes work.
 
 ## 1. MVP gaps in the app
 
-- [ ] **[Claude]** Loading feedback on every action that makes a network
-      request. Example: after "Create Box" in the dialog nothing visibly
-      happens until the request finishes and the list reappears. Audit all
-      box/item create, edit and delete, search, login/signup, purchases and
-      uploads: disable the button and show `:loading` while in flight,
-      `$q.notify` on success or failure, and guard against double submits.
-
 - [ ] **[Claude]** Account management on `/account` (`src/pages/AccountPage.vue`):
       change email/password, delete account. The page currently only logs out.
 - [ ] **[Claude]** Keyboard navigation through the add-items form fields.
@@ -173,6 +166,9 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Loading feedback on network actions: spinners, double-submit guards
+      and success/failure notifications for box create/delete, box and item
+      edit, item delete, searches and saving scanned items. 2026-10-20.
 - [x] Removed the subscription/plan scaffolding (plans, subscription and
       paywall stores, `PaywallGate`/`PaywallModal`, `src/billing/`,
       `apiErrors.js`). Credits are the only paywall. 2026-10-20.

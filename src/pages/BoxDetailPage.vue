@@ -206,8 +206,15 @@
               hint="Example: fragile, winter, donation"
             />
             <div class="row q-gutter-sm">
-              <q-btn type="submit" color="primary" label="Save changes" unelevated />
-              <q-btn flat color="grey-7" label="Cancel" @click="cancelEdit" />
+              <q-btn
+                type="submit"
+                color="primary"
+                label="Save changes"
+                unelevated
+                :loading="isSavingBox"
+                :disable="isSavingBox"
+              />
+              <q-btn flat color="grey-7" label="Cancel" :disable="isSavingBox" @click="cancelEdit" />
             </div>
           </q-form>
         </q-card-section>
@@ -229,6 +236,7 @@
           clearable
           label="Search items"
           class="q-mb-md"
+          :loading="isSearchingItems"
           @update:model-value="handleItemSearch"
         >
           <template #prepend>
@@ -306,8 +314,15 @@
           </q-card-section>
           <q-separator />
           <q-card-actions align="right" class="q-pa-md">
-            <q-btn flat label="Cancel" v-close-popup />
-            <q-btn color="primary" label="Save" unelevated @click="saveItem" />
+            <q-btn flat label="Cancel" :disable="isSavingItem" v-close-popup />
+            <q-btn
+              color="primary"
+              label="Save"
+              unelevated
+              :loading="isSavingItem"
+              :disable="isSavingItem"
+              @click="saveItem"
+            />
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -320,8 +335,15 @@
             <span class="q-ml-sm">Delete this item?</span>
           </q-card-section>
           <q-card-actions align="right">
-            <q-btn flat label="Cancel" v-close-popup />
-            <q-btn color="negative" label="Delete" unelevated @click="deleteItem" />
+            <q-btn flat label="Cancel" :disable="isDeletingItem" v-close-popup />
+            <q-btn
+              color="negative"
+              label="Delete"
+              unelevated
+              :loading="isDeletingItem"
+              :disable="isDeletingItem"
+              @click="deleteItem"
+            />
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -332,6 +354,7 @@
 <script setup>
 import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useQuasar } from 'quasar'
 import AddItemDialog from 'src/components/AddItemDialog.vue'
 import QRCodeDialog from 'src/components/QRCodeDialog.vue'
 import { useBoxesStore } from 'src/stores/boxes.store'
@@ -340,12 +363,17 @@ import { useAuthStore } from 'src/stores/auth.store'
 import { supabase } from 'src/utils/supabase'
 import { getBoxPath, getBoxQrValue } from 'src/utils/boxQr'
 
+const $q = useQuasar()
 const route = useRoute()
 const router = useRouter()
 const boxesStore = useBoxesStore()
 const itemsStore = useItemsStore()
 const authStore = useAuthStore()
 const box = ref(null)
+const isSavingBox = ref(false)
+const isSavingItem = ref(false)
+const isDeletingItem = ref(false)
+const isSearchingItems = ref(false)
 const boxDraft = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const addItemDialog = ref(null)
 const qrCodeDialog = ref(null)
@@ -407,7 +435,15 @@ const fetchItems = async () => {
 const handleItemSearch = () => {
   if (itemSearchDebounce) clearTimeout(itemSearchDebounce)
   itemSearchDebounce = setTimeout(async () => {
-    await fetchItems()
+    isSearchingItems.value = true
+    try {
+      await fetchItems()
+    } catch (error) {
+      console.error('Error searching items:', error)
+      $q.notify({ type: 'negative', message: 'Search failed. Please try again.' })
+    } finally {
+      isSearchingItems.value = false
+    }
   }, 250)
 }
 
@@ -448,7 +484,12 @@ const fetchBoxDetails = async () => {
   }
 }
 
+const errorText = (error) =>
+  error?.response?.data?.message || error?.message || 'Something went wrong. Please try again.'
+
 const updateBox = async () => {
+  if (isSavingBox.value) return
+  isSavingBox.value = true
   try {
     const name = boxDraft.value.name.trim()
     const renamed = name !== box.value.name
@@ -461,6 +502,7 @@ const updateBox = async () => {
       ...(renamed ? { qr_code_url: getBoxQrValue({ ...box.value, name }) } : {}),
     })
     isEditing.value = false
+    $q.notify({ type: 'positive', message: 'Box updated' })
     if (renamed) {
       // The current URL names the old box, which no longer resolves; the
       // route watcher reloads the page at the new one.
@@ -470,6 +512,9 @@ const updateBox = async () => {
     }
   } catch (error) {
     console.error('Error updating box:', error)
+    $q.notify({ type: 'negative', message: `Could not update box: ${errorText(error)}` })
+  } finally {
+    isSavingBox.value = false
   }
 }
 
@@ -488,16 +533,22 @@ const openEditItemDialog = (item) => {
 }
 
 const saveItem = async () => {
+  if (isSavingItem.value) return
+  isSavingItem.value = true
   try {
     await itemsStore.updateItem(itemToEdit.value.id, {
       name: itemToEdit.value.name,
       description: itemToEdit.value.description,
       tags: itemToEdit.value.tags,
     })
-    await fetchItems()
     editItemDialog.value = false
+    $q.notify({ type: 'positive', message: 'Item updated' })
+    await fetchItems()
   } catch (error) {
     console.error('Error saving item:', error)
+    $q.notify({ type: 'negative', message: `Could not save item: ${errorText(error)}` })
+  } finally {
+    isSavingItem.value = false
   }
 }
 
@@ -507,12 +558,18 @@ const confirmItemDelete = (itemId) => {
 }
 
 const deleteItem = async () => {
+  if (isDeletingItem.value) return
+  isDeletingItem.value = true
   try {
     await itemsStore.deleteItem(itemToDelete.value)
     deleteDialog.value = false
+    $q.notify({ type: 'positive', message: 'Item deleted' })
     await fetchItems()
   } catch (error) {
     console.error('Error deleting item:', error)
+    $q.notify({ type: 'negative', message: `Could not delete item: ${errorText(error)}` })
+  } finally {
+    isDeletingItem.value = false
   }
 }
 

@@ -15,6 +15,7 @@
       clearable
       label="Search boxes"
       class="q-mb-md"
+      :loading="isSearching"
       @update:model-value="handleBoxSearch"
     >
       <template #prepend>
@@ -107,7 +108,6 @@
     </div>
 
     <q-banner v-if="loadError" rounded class="bg-red-1 text-red-10 q-mt-md">{{ loadError }}</q-banner>
-    <q-banner v-if="errorMessage" color="negative" class="q-mt-md">{{ errorMessage }}</q-banner>
 
     <!-- Create new box -->
     <q-btn
@@ -120,7 +120,7 @@
     />
 
     <!-- Create box dialog -->
-    <q-dialog v-model="showCreateBoxModal">
+    <q-dialog v-model="showCreateBoxModal" :persistent="isCreating">
       <q-card style="width: 440px; max-width: 95vw">
         <q-card-section class="row items-start no-wrap q-pb-sm">
           <div class="row items-center col">
@@ -130,7 +130,7 @@
               <div class="text-caption text-grey-6">Add a container to your inventory</div>
             </div>
           </div>
-          <q-btn flat round dense icon="close" @click="showCreateBoxModal = false" />
+          <q-btn flat round dense icon="close" :disable="isCreating" @click="showCreateBoxModal = false" />
         </q-card-section>
 
         <q-separator />
@@ -179,15 +179,23 @@
           <q-separator />
 
           <q-card-actions align="right" class="q-pa-md">
-            <q-btn flat label="Cancel" @click="showCreateBoxModal = false" />
-            <q-btn type="submit" color="primary" icon="add" label="Create box" unelevated />
+            <q-btn flat label="Cancel" :disable="isCreating" @click="showCreateBoxModal = false" />
+            <q-btn
+              type="submit"
+              color="primary"
+              icon="add"
+              label="Create box"
+              unelevated
+              :loading="isCreating"
+              :disable="isCreating"
+            />
           </q-card-actions>
         </q-form>
       </q-card>
     </q-dialog>
 
     <!-- Delete confirmation dialog -->
-    <q-dialog v-model="showDeleteModal">
+    <q-dialog v-model="showDeleteModal" :persistent="isDeleting">
       <q-card class="q-pa-md" style="width: 400px; max-width: 80vw">
         <q-card-section>
           <div class="text-h6">Delete box</div>
@@ -197,8 +205,15 @@
           <p>Are you sure? This cannot be undone.</p>
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" @click="showDeleteModal = false" />
-          <q-btn color="negative" label="Delete" unelevated @click="deleteBox" />
+          <q-btn flat label="Cancel" :disable="isDeleting" @click="showDeleteModal = false" />
+          <q-btn
+            color="negative"
+            label="Delete"
+            unelevated
+            :loading="isDeleting"
+            :disable="isDeleting"
+            @click="deleteBox"
+          />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -210,9 +225,11 @@ import { useBoxesStore } from 'src/stores/boxes.store'
 import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
+import { useQuasar } from 'quasar'
 import { supabase } from 'src/utils/supabase'
 import { getBoxPath } from 'src/utils/boxQr'
 
+const $q = useQuasar()
 const router = useRouter()
 const boxesStore = useBoxesStore()
 const { boxes } = storeToRefs(boxesStore)
@@ -221,7 +238,9 @@ const selectedBox = ref(null)
 const boxSearch = ref('')
 const showCreateBoxModal = ref(false)
 const showDeleteModal = ref(false)
-const errorMessage = ref('')
+const isCreating = ref(false)
+const isDeleting = ref(false)
+const isSearching = ref(false)
 const loadError = ref('')
 const isLoading = ref(true)
 const itemCounts = ref({})
@@ -271,19 +290,34 @@ const openCreateBoxModal = () => {
 
 const handleBoxSearch = () => {
   if (searchDebounce) clearTimeout(searchDebounce)
-  searchDebounce = setTimeout(refreshBoxes, 250)
+  searchDebounce = setTimeout(async () => {
+    isSearching.value = true
+    try {
+      await refreshBoxes()
+    } finally {
+      isSearching.value = false
+    }
+  }, 250)
 }
 
+const errorText = (error) =>
+  error?.response?.data?.message || error?.message || 'Something went wrong. Please try again.'
+
+// On failure the dialog stays open with the form intact so nothing is lost.
 const handleCreateBox = async () => {
+  if (isCreating.value) return
+  isCreating.value = true
   try {
-    await boxesStore.createBox({ ...box.value, name: box.value.name.trim() })
-  } catch (error) {
-    errorMessage.value =
-      error?.response?.data?.message || error?.message || 'Something went wrong. Please try again.'
-  } finally {
+    const name = box.value.name.trim()
+    await boxesStore.createBox({ ...box.value, name })
     showCreateBoxModal.value = false
     box.value = { name: '', description: '', access_level: 'private', tags: '' }
+    $q.notify({ type: 'positive', message: `Box "${name}" created` })
     await refreshBoxes()
+  } catch (error) {
+    $q.notify({ type: 'negative', message: `Could not create box: ${errorText(error)}` })
+  } finally {
+    isCreating.value = false
   }
 }
 
@@ -297,14 +331,19 @@ const confirmDelete = (id) => {
 }
 
 const deleteBox = async () => {
+  if (isDeleting.value) return
+  isDeleting.value = true
+  const name = selectedBox.value?.name
   try {
     await boxesStore.deleteBox(selectedBox.value.id)
     showDeleteModal.value = false
-  } catch (error) {
-    errorMessage.value = error.message
-  } finally {
     selectedBox.value = null
+    $q.notify({ type: 'positive', message: `Box "${name}" deleted` })
     await refreshBoxes()
+  } catch (error) {
+    $q.notify({ type: 'negative', message: `Could not delete box: ${errorText(error)}` })
+  } finally {
+    isDeleting.value = false
   }
 }
 
