@@ -9,6 +9,11 @@ Task IDs `T…` (payments) and `DL…` (deep links) carry over from the old docs
 so archived rationale still lines up. Owner tags: **[Claude]** = code or
 terminal work; **[You: …]** = dashboard or device work only you can do.
 
+**Monetization is credits only.** Credits are bought as packs (Stripe on
+web, Apple IAP via RevenueCat on iOS) and spent on AI identify scans; running
+out returns HTTP 402 and shows `OutOfCreditsCard`. There are no subscriptions
+or plans, and nothing else is paywalled.
+
 Reference docs (not task lists): `docs/payments-flow.md`,
 `docs/deploy-dev-environment.md`.
 
@@ -32,26 +37,23 @@ Not tasks yet. Each needs a decision before it becomes work.
 
 ## 1. MVP gaps in the app
 
-- [ ] **[Claude]** Call `setUsageCounts()` after boxes/items are fetched. It's
-      never called, so `boxCount`/`itemCountTotal` stay 0 and the frontend
-      never enforces plan limits (only the backend 402 does). Also remove the
-      no-op stub in `src/composables/useSubscription.js:21` that shadows the
-      real action in `src/stores/subscription.store.js:82`.
-- [ ] **[Claude]** Wrap the "Add Item" button (`src/pages/BoxDetailPage.vue:138`)
-      in `<PaywallGate feature="items">`. Box creation is gated, but item
-      creation isn't.
 - [ ] **[Claude]** Account management on `/account` (`src/pages/AccountPage.vue`):
       change email/password, delete account. The page currently only logs out.
 - [ ] **[Claude]** Keyboard navigation through the add-items form fields.
       (Focus-on-open is done: the name input autofocuses in
       `AddItemsDesktopDialog.vue`.)
-- [ ] **[You]** Decide: hide the paywall's "Upgrade" button
-      (`src/components/paywall/PaywallModal.vue`) for MVP, or accept that it
-      404s. Subscriptions are deliberately stubbed (credit packs only, see
-      `docs/archive/TASKS_payments_plan.md`), so `/billing/*` doesn't exist.
-      The billing portal link went away with the Billing page in PR #35;
-      `createBillingPortalSession` in `src/billing/billing.service.js` is now
-      unused.
+- [ ] **[Claude]** Remove the leftover subscription/plan scaffolding. There
+      are no plans, only credits (see the note at the top). All of these are
+      dead or misleading:
+      - `src/entitlements/subscriptionPlans.js`, `src/stores/subscription.store.js`
+        and the no-op `src/composables/useSubscription.js`
+      - `<PaywallGate feature="boxes">` in `src/pages/BoxListPage.vue`. It
+        never blocks, because usage counts are never set.
+      - `PaywallGate.vue`, `PaywallModal.vue` (its "Upgrade" button calls the
+        non-existent `/billing/*`) and `src/billing/billing.service.js`
+      - `fetchSubscription()` in `MainLayout.vue`'s `onMounted`
+      - `src/utils/apiErrors.js` maps **403** to `ENTITLEMENT_BLOCKED`, but 403
+        means "no access to this box", not out of credits. Keep 402 only.
 
 ## 2. Unverified, needs a database check
 
