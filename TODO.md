@@ -34,8 +34,20 @@ Not tasks yet. Each needs a decision before it becomes work.
 - [ ] **Clean up the QR code page** (`QRCodeDialog.vue`).
 - [ ] **Saving photos.** Decide whether and where item photos are kept.
 - [ ] **Group boxes by location** (garage, basement, storage locker, etc.).
+- [ ] **Long box lists.** With many boxes, "Create new box" sits at the
+      bottom of `BoxListPage.vue`, so users have to scroll to reach it.
+      Options: move it to the top, a floating action button (`q-page-sticky`),
+      a header action, and/or pagination or collapsing (ties in with
+      grouping by location above).
 
 ## 1. MVP gaps in the app
+
+- [ ] **[Claude]** Loading feedback on every action that makes a network
+      request. Example: after "Create Box" in the dialog nothing visibly
+      happens until the request finishes and the list reappears. Audit all
+      box/item create, edit and delete, search, login/signup, purchases and
+      uploads: disable the button and show `:loading` while in flight,
+      `$q.notify` on success or failure, and guard against double submits.
 
 - [ ] **[Claude]** Account management on `/account` (`src/pages/AccountPage.vue`):
       change email/password, delete account. The page currently only logs out.
