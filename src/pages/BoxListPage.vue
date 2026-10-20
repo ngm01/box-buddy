@@ -110,16 +110,14 @@
     <q-banner v-if="errorMessage" color="negative" class="q-mt-md">{{ errorMessage }}</q-banner>
 
     <!-- Create new box -->
-    <PaywallGate feature="boxes">
-      <q-btn
-        color="primary"
-        class="q-mt-lg"
-        icon="add"
-        label="Create new box"
-        unelevated
-        @click="openCreateBoxModal"
-      />
-    </PaywallGate>
+    <q-btn
+      color="primary"
+      class="q-mt-lg"
+      icon="add"
+      label="Create new box"
+      unelevated
+      @click="openCreateBoxModal"
+    />
 
     <!-- Create box dialog -->
     <q-dialog v-model="showCreateBoxModal">
@@ -212,13 +210,9 @@ import { useBoxesStore } from 'src/stores/boxes.store'
 import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import { useSubscription } from 'src/composables/useSubscription'
-import { normalizeApiError } from 'src/utils/apiErrors'
 import { supabase } from 'src/utils/supabase'
-import PaywallGate from 'src/components/paywall/PaywallGate.vue'
 import { getBoxPath } from 'src/utils/boxQr'
 
-const { requireEntitlement, openPaywallModal } = useSubscription()
 const router = useRouter()
 const boxesStore = useBoxesStore()
 const { boxes } = storeToRefs(boxesStore)
@@ -281,22 +275,11 @@ const handleBoxSearch = () => {
 }
 
 const handleCreateBox = async () => {
-  if (!requireEntitlement({ feature: 'boxes', reason: 'You reached the box limit for your plan.' })) {
-    showCreateBoxModal.value = false
-    return
-  }
-
   try {
     await boxesStore.createBox({ ...box.value, name: box.value.name.trim() })
   } catch (error) {
-    const normalized = normalizeApiError(error)
-    errorMessage.value = normalized.message
-    if (normalized.action === 'open_paywall') {
-      openPaywallModal(normalized.feature || 'boxes', {
-        reason: normalized.message,
-        details: normalized.details,
-      })
-    }
+    errorMessage.value =
+      error?.response?.data?.message || error?.message || 'Something went wrong. Please try again.'
   } finally {
     showCreateBoxModal.value = false
     box.value = { name: '', description: '', access_level: 'private', tags: '' }

@@ -88,26 +88,22 @@
       <div v-if="isMobile" class="bottom-nav-overhang" />
     </q-page-container>
 
-    <PaywallModal />
     <CreditsSheet v-model:is-open="creditsSheetOpen" />
   </q-layout>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useAuthStore } from '../stores/auth.store'
 import { useRoute, useRouter } from 'vue-router'
-import { useSubscriptionStore } from 'src/stores/subscription.store'
 import { useMobileLayout } from 'src/composables/useMobileLayout'
 import { useLogout } from 'src/composables/useLogout'
 import { goBackOr } from 'src/utils/navigation'
-import PaywallModal from 'src/components/paywall/PaywallModal.vue'
 import CreditPill from 'src/components/CreditPill.vue'
 import CreditsSheet from 'src/components/CreditsSheet.vue'
 import MobileBottomNav from 'src/components/MobileBottomNav.vue'
 
 const authStore = useAuthStore()
-const subscriptionStore = useSubscriptionStore()
 const route = useRoute()
 const router = useRouter()
 const isMobile = useMobileLayout()
@@ -130,10 +126,6 @@ const mobileBackTarget = computed(() => (route.params.box_name ? '/boxes' : null
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
 }
-
-onMounted(async () => {
-  await subscriptionStore.fetchSubscription()
-})
 </script>
 
 <style scoped>

@@ -42,18 +42,6 @@ Not tasks yet. Each needs a decision before it becomes work.
 - [ ] **[Claude]** Keyboard navigation through the add-items form fields.
       (Focus-on-open is done: the name input autofocuses in
       `AddItemsDesktopDialog.vue`.)
-- [ ] **[Claude]** Remove the leftover subscription/plan scaffolding. There
-      are no plans, only credits (see the note at the top). All of these are
-      dead or misleading:
-      - `src/entitlements/subscriptionPlans.js`, `src/stores/subscription.store.js`
-        and the no-op `src/composables/useSubscription.js`
-      - `<PaywallGate feature="boxes">` in `src/pages/BoxListPage.vue`. It
-        never blocks, because usage counts are never set.
-      - `PaywallGate.vue`, `PaywallModal.vue` (its "Upgrade" button calls the
-        non-existent `/billing/*`) and `src/billing/billing.service.js`
-      - `fetchSubscription()` in `MainLayout.vue`'s `onMounted`
-      - `src/utils/apiErrors.js` maps **403** to `ENTITLEMENT_BLOCKED`, but 403
-        means "no access to this box", not out of credits. Keep 402 only.
 
 ## 2. Unverified, needs a database check
 
@@ -173,6 +161,9 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Removed the subscription/plan scaffolding (plans, subscription and
+      paywall stores, `PaywallGate`/`PaywallModal`, `src/billing/`,
+      `apiErrors.js`). Credits are the only paywall. 2026-10-20.
 - [x] Mobile bottom nav with an in-app QR scanner (`/scan`) that opens the
       scanned box, plus an Account page. PR #35, merged 2026-10-20.
 - [x] iOS printing of QR codes and full labels. Commit `7c9444c`, confirmed
