@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { supabase } from 'src/utils/supabase'
 import { markServiceUnavailable } from 'src/utils/serviceStatus'
+import { safeWebBaseUrl } from 'src/config/app.config'
 import { initPayments, teardownPayments } from 'src/services/payments.service'
 import { useBoxesStore } from 'src/stores/boxes.store'
 import { useCreditsStore } from 'src/stores/credits.store'
@@ -100,6 +101,42 @@ export const useAuthStore = defineStore('auth', () => {
     return { ok: true, message: 'Logged out' }
   }
 
+  // Supabase emails a confirmation link; the address only changes once it's
+  // clicked (with "secure email change" on, both old and new must confirm).
+  const updateEmail = async (email) => {
+    // On iOS the origin is capacitor://localhost, which an email link can't open.
+    const origin = window.location.protocol.startsWith('http')
+      ? window.location.origin
+      : safeWebBaseUrl
+    const { error } = await supabase.auth.updateUser(
+      { email },
+      { emailRedirectTo: `${origin}/account` },
+    )
+    if (error) throw error
+  }
+
+  // Re-checks the current password first so an unattended signed-in device
+  // can't be used to take over the account.
+  const updatePassword = async (currentPassword, newPassword) => {
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: user.value?.email,
+      password: currentPassword,
+    })
+    if (verifyError) throw new Error('Current password is incorrect')
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw error
+  }
+
+  // See backend/Supabase/migrations/202610200001_delete_own_account.sql.
+  const deleteAccount = async () => {
+    const { error } = await supabase.rpc('delete_own_account')
+    if (error) throw error
+    // The user no longer exists, so the server-side sign-out may fail;
+    // clearing the local session is what matters.
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+  }
+
   return {
     user,
     token,
@@ -110,5 +147,8 @@ export const useAuthStore = defineStore('auth', () => {
     signup,
     login,
     logout,
+    updateEmail,
+    updatePassword,
+    deleteAccount,
   }
 })

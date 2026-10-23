@@ -1,6 +1,86 @@
 <template>
   <q-page class="account-page column">
     <h1 class="account-page__title">Account</h1>
+    <div class="text-grey-7 q-mt-xs">Signed in as {{ authStore.user?.email }}</div>
+
+    <q-card flat bordered class="q-mt-lg">
+      <q-card-section>
+        <div class="text-subtitle1 text-weight-medium">Change email</div>
+        <div v-if="pendingEmail" class="text-caption text-grey-7">
+          Waiting for confirmation of {{ pendingEmail }}
+        </div>
+        <q-form ref="emailForm" class="q-mt-sm" @submit="handleChangeEmail">
+          <q-input
+            v-model="newEmail"
+            label="New email"
+            type="email"
+            autocomplete="email"
+            filled
+            :disable="isSavingEmail"
+            :rules="[
+              (val) => !!val || 'Email is required',
+              (val) => /.+@.+\..+/.test(val) || 'Enter a valid email',
+              (val) => val.trim() !== authStore.user?.email || 'That is your current email',
+            ]"
+          />
+          <q-btn
+            type="submit"
+            color="primary"
+            label="Send confirmation link"
+            :loading="isSavingEmail"
+            :disable="isSavingEmail"
+          />
+        </q-form>
+      </q-card-section>
+    </q-card>
+
+    <q-card flat bordered class="q-mt-md">
+      <q-card-section>
+        <div class="text-subtitle1 text-weight-medium">Change password</div>
+        <q-form ref="passwordForm" class="q-mt-sm" @submit="handleChangePassword">
+          <q-input
+            v-model="currentPassword"
+            label="Current password"
+            type="password"
+            autocomplete="current-password"
+            filled
+            :disable="isSavingPassword"
+            :rules="[(val) => !!val || 'Current password is required']"
+          />
+          <q-input
+            v-model="newPassword"
+            label="New password"
+            type="password"
+            autocomplete="new-password"
+            filled
+            :disable="isSavingPassword"
+            :rules="[
+              (val) => !!val || 'Password is required',
+              (val) => val.length >= 6 || 'Password must be at least 6 characters',
+            ]"
+          />
+          <q-input
+            v-model="confirmPassword"
+            label="Confirm new password"
+            type="password"
+            autocomplete="new-password"
+            filled
+            :disable="isSavingPassword"
+            :rules="[
+              (val) => !!val || 'Please confirm your password',
+              (val) => val === newPassword || 'Passwords do not match',
+            ]"
+          />
+          <q-btn
+            type="submit"
+            color="primary"
+            label="Update password"
+            :loading="isSavingPassword"
+            :disable="isSavingPassword"
+          />
+        </q-form>
+      </q-card-section>
+    </q-card>
 
     <button
       type="button"
@@ -13,7 +93,15 @@
       Log out
     </button>
 
-    <div class="account-page__future">More account settings coming later.</div>
+    <q-btn
+      flat
+      color="negative"
+      icon="delete_forever"
+      label="Delete account"
+      class="q-mt-xl"
+      :disable="isDeleting"
+      @click="openDeleteDialog"
+    />
 
     <MessageDialog
       v-model="confirmOpen"
@@ -25,16 +113,133 @@
         <q-btn flat color="negative" label="Log out" @click="handleLogout" />
       </template>
     </MessageDialog>
+
+    <q-dialog v-model="deleteOpen" :persistent="isDeleting">
+      <q-card class="account-page__delete-card">
+        <q-card-section>
+          <div class="text-h6">Delete your account?</div>
+          <p class="q-mt-sm q-mb-none">
+            This permanently deletes all your boxes, items and remaining credits. It can't be
+            undone.
+          </p>
+        </q-card-section>
+        <q-card-section class="q-pt-none">
+          <q-input
+            v-model="deleteConfirmText"
+            label="Type DELETE to confirm"
+            filled
+            autofocus
+            :disable="isDeleting"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" :disable="isDeleting" v-close-popup />
+          <q-btn
+            flat
+            color="negative"
+            label="Delete account"
+            :loading="isDeleting"
+            :disable="deleteConfirmText !== 'DELETE' || isDeleting"
+            @click="handleDeleteAccount"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useQuasar } from 'quasar'
+import { useAuthStore } from 'src/stores/auth.store'
 import { useLogout } from 'src/composables/useLogout'
 import MessageDialog from 'src/components/MessageDialog.vue'
 
+const $q = useQuasar()
+const router = useRouter()
+const authStore = useAuthStore()
 const { isLoggingOut, logout } = useLogout()
 const confirmOpen = ref(false)
+
+const errorText = (error) => error?.message || 'Something went wrong. Please try again.'
+
+// Supabase sets new_email on the user until the confirmation link is clicked.
+const pendingEmail = computed(() => authStore.user?.new_email || '')
+
+const emailForm = ref(null)
+const newEmail = ref('')
+const isSavingEmail = ref(false)
+
+async function handleChangeEmail() {
+  if (isSavingEmail.value) return
+  isSavingEmail.value = true
+  try {
+    const email = newEmail.value.trim()
+    await authStore.updateEmail(email)
+    newEmail.value = ''
+    await nextTick()
+    emailForm.value?.resetValidation()
+    $q.notify({
+      type: 'positive',
+      message: `Check ${email} for a confirmation link`,
+      caption: 'Your old address may get one too. The change applies once confirmed.',
+      timeout: 8000,
+    })
+  } catch (error) {
+    $q.notify({ type: 'negative', message: `Could not change email: ${errorText(error)}` })
+  } finally {
+    isSavingEmail.value = false
+  }
+}
+
+const passwordForm = ref(null)
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const isSavingPassword = ref(false)
+
+async function handleChangePassword() {
+  if (isSavingPassword.value) return
+  isSavingPassword.value = true
+  try {
+    await authStore.updatePassword(currentPassword.value, newPassword.value)
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+    await nextTick()
+    passwordForm.value?.resetValidation()
+    $q.notify({ type: 'positive', message: 'Password updated' })
+  } catch (error) {
+    $q.notify({ type: 'negative', message: `Could not update password: ${errorText(error)}` })
+  } finally {
+    isSavingPassword.value = false
+  }
+}
+
+const deleteOpen = ref(false)
+const deleteConfirmText = ref('')
+const isDeleting = ref(false)
+
+function openDeleteDialog() {
+  deleteConfirmText.value = ''
+  deleteOpen.value = true
+}
+
+async function handleDeleteAccount() {
+  if (isDeleting.value || deleteConfirmText.value !== 'DELETE') return
+  isDeleting.value = true
+  try {
+    await authStore.deleteAccount()
+    deleteOpen.value = false
+    $q.notify({ type: 'positive', message: 'Your account has been deleted' })
+    await router.push('/login')
+  } catch (error) {
+    $q.notify({ type: 'negative', message: `Could not delete account: ${errorText(error)}` })
+  } finally {
+    isDeleting.value = false
+  }
+}
 
 async function handleLogout() {
   confirmOpen.value = false
@@ -76,11 +281,11 @@ async function handleLogout() {
   cursor: default;
   opacity: 0.7;
 }
-.account-page__future {
-  margin-top: auto;
-  padding-top: 24px;
-  font-size: 13px;
-  color: #aaa;
-  text-align: center;
+.account-page__delete-card {
+  width: 100%;
+  max-width: 380px;
+}
+.account-page .q-form .q-btn {
+  margin-top: 4px;
 }
 </style>

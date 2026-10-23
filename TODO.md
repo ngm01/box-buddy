@@ -42,8 +42,27 @@ Not tasks yet. Each needs a decision before it becomes work.
 
 ## 1. MVP gaps in the app
 
-- [ ] **[Claude]** Account management on `/account` (`src/pages/AccountPage.vue`):
-      change email/password, delete account. The page currently only logs out.
+- [ ] **[Claude]** Professional error handling on the signup and login pages.
+      Show specific, friendly messages (name taken, email already
+      registered, wrong password, unconfirmed email, network down) instead
+      of raw Supabase text or a generic "try again", and log the real cause.
+- [ ] **[You: Supabase] + [Claude]** Signup confirmation link opens
+      `boxbuddy.io`, which doesn't serve the app yet. The app passes
+      `<origin>/signup-success` as `emailRedirectTo`, but Supabase falls back
+      to the **Site URL** when that URL isn't in Auth → URL Configuration →
+      Redirect URLs. Fix: set the Site URL to the live web app (currently
+      `https://dev.boxbuddy.io`) and allow-list `http://localhost:9000/**` and
+      `https://dev.boxbuddy.io/**`. On iOS the origin is
+      `capacitor://localhost`, so signup there needs a web URL (as
+      `updateEmail` does with `safeWebBaseUrl`).
+- [ ] **[You: Supabase/email provider] + [Claude]** Send auth emails
+      (confirm signup, reset password, change email) from Box Buddy, not
+      Supabase. Set up custom SMTP (e.g. Amazon SES, Resend, Postmark) with a
+      `boxbuddy.io` sender plus SPF/DKIM DNS records, then brand the templates
+      under Auth → Email Templates. Also lifts Supabase's built-in email rate
+      limit.
+- [ ] **[You]** Test changing email on `/account` (the rest of account
+      management is done and tested).
 - [ ] **[Claude]** Keyboard navigation through the add-items form fields.
       (Focus-on-open is done: the name input autofocuses in
       `AddItemsDesktopDialog.vue`.)
@@ -166,6 +185,10 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Account management on `/account`: change password (re-checks the
+      current one), delete account (`delete_own_account` RPC), change email
+      (built, not yet tested). Signup display-name check fixed with a real
+      `profiles` table. Both migrations applied; tested 2026-10-22.
 - [x] Loading feedback on network actions: spinners, double-submit guards
       and success/failure notifications for box create/delete, box and item
       edit, item delete, searches and saving scanned items. 2026-10-20.
