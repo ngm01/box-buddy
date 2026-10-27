@@ -30,6 +30,7 @@
         color="primary"
         label="Update password"
         :loading="loading"
+        :disable="loading"
         class="full-width"
       />
     </q-form>
@@ -52,6 +53,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from 'src/utils/supabase'
+import { friendlyAuthError } from 'src/utils/authErrors'
 
 const router = useRouter()
 
@@ -107,7 +109,7 @@ const updatePassword = async () => {
     confirmPassword.value = ''
   } catch (err) {
     hasError.value = true
-    message.value = err.message
+    message.value = friendlyAuthError(err, 'reset-password')
   } finally {
     loading.value = false
   }

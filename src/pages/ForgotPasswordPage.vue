@@ -9,10 +9,18 @@
         label="Email"
         type="email"
         autocomplete="email"
+        autocapitalize="off"
         :rules="[(val) => !!val || 'Email is required']"
         filled
       />
-      <q-btn type="submit" color="primary" label="Send reset link" :loading="loading" class="full-width" />
+      <q-btn
+        type="submit"
+        color="primary"
+        label="Send reset link"
+        :loading="loading"
+        :disable="loading"
+        class="full-width"
+      />
     </q-form>
 
     <div
@@ -33,6 +41,7 @@
 import { ref } from 'vue'
 import { supabase } from 'src/utils/supabase'
 import { getAuthRedirectUrl } from 'src/config/app.config'
+import { friendlyAuthError } from 'src/utils/authErrors'
 
 const email = ref('')
 const loading = ref(false)
@@ -45,16 +54,17 @@ const requestReset = async () => {
     hasError.value = false
     message.value = ''
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.value.trim(), {
       redirectTo: getAuthRedirectUrl('/reset-password'),
     })
 
     if (error) throw error
 
-    message.value = 'Password reset link sent. Check your email.'
+    // Supabase doesn't say whether the address has an account, and neither do we.
+    message.value = 'If that email has an account, a reset link is on its way. Check your inbox.'
   } catch (err) {
     hasError.value = true
-    message.value = err.message
+    message.value = friendlyAuthError(err, 'forgot-password')
   } finally {
     loading.value = false
   }

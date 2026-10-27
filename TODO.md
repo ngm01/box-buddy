@@ -57,10 +57,6 @@ Not tasks yet. Each needs a decision before it becomes work.
 
 ## 1. MVP gaps in the app
 
-- [ ] **[Claude]** Professional error handling on the signup and login pages.
-      Show specific, friendly messages (name taken, email already
-      registered, wrong password, unconfirmed email, network down) instead
-      of raw Supabase text or a generic "try again", and log the real cause.
 - [ ] **[You: Supabase/email provider] + [Claude]** Send auth emails
       (confirm signup, reset password, change email) from Box Buddy, not
       Supabase. Set up custom SMTP (e.g. Amazon SES, Resend, Postmark) with a
@@ -207,6 +203,10 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Friendly auth error messages (`src/utils/authErrors.js`) on login,
+      signup, forgot/reset password, resend and account pages; field-level
+      display-name errors; duplicate-email detection; resend-confirmation
+      shortcut on login. Tested 2026-10-27.
 - [x] Auth email links (signup, resend, reset password, change email) go
       through `getAuthRedirectUrl()` and land back in the app; iOS uses the
       web URL. Supabase Redirect URLs allow-list localhost:9000, dev and apex

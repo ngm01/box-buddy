@@ -158,6 +158,7 @@ import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/auth.store'
 import { useLogout } from 'src/composables/useLogout'
 import MessageDialog from 'src/components/MessageDialog.vue'
+import { friendlyAuthError } from 'src/utils/authErrors'
 
 const $q = useQuasar()
 const router = useRouter()
@@ -165,7 +166,7 @@ const authStore = useAuthStore()
 const { isLoggingOut, logout } = useLogout()
 const confirmOpen = ref(false)
 
-const errorText = (error) => error?.message || 'Something went wrong. Please try again.'
+const errorText = (error) => friendlyAuthError(error, 'account')
 
 // Supabase sets new_email on the user until the confirmation link is clicked.
 const pendingEmail = computed(() => authStore.user?.new_email || '')

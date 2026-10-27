@@ -28,16 +28,32 @@
           inputmode="password"
           autocapitalize="off"
         />
-        <q-btn type="submit" color="primary" label="Login" class="full-width" />
+        <q-banner v-if="error" class="bg-red-1 text-negative text-left" rounded>
+          <template #avatar><q-icon name="error_outline" color="negative" /></template>
+          {{ error }}
+          <template v-if="needsConfirmation" #action>
+            <q-btn
+              flat
+              color="primary"
+              label="Resend confirmation"
+              :to="{ path: '/signup-success', query: { email: email.trim() } }"
+            />
+          </template>
+        </q-banner>
+        <q-btn
+          type="submit"
+          color="primary"
+          label="Login"
+          class="full-width"
+          :loading="isSubmitting"
+          :disable="isSubmitting"
+        />
       </q-form>
       <div class="q-mt-sm text-right">
         <router-link to="/forgot-password">Forgot password?</router-link>
       </div>
       <div class="q-mt-md text-center">
         Don't have an account? <router-link to="/signup">Sign up</router-link>
-      </div>
-      <div v-if="error">
-        <h1>{{ error }}</h1>
       </div>
     </div>
   </div>
@@ -53,12 +69,13 @@ const router = useRouter()
 import { useAuthStore } from 'src/stores/auth.store'
 const authStore = useAuthStore()
 
-import { useQuasar } from 'quasar'
-const $q = useQuasar()
+import { friendlyAuthError } from 'src/utils/authErrors'
 
 const email = ref('')
 const password = ref('')
 const error = ref('')
+const needsConfirmation = ref(false)
+const isSubmitting = ref(false)
 
 const sessionMessage = computed(() => {
   if (route.query.message === 'session-expired') {
@@ -69,16 +86,25 @@ const sessionMessage = computed(() => {
 })
 
 const login = async () => {
-  $q.loading.show()
+  if (isSubmitting.value) return
+  error.value = ''
+  needsConfirmation.value = false
 
+  if (!email.value.trim() || !password.value) {
+    error.value = 'Enter your email and password.'
+    return
+  }
+
+  isSubmitting.value = true
   try {
-    await authStore.login(email.value, password.value)
+    await authStore.login(email.value.trim(), password.value)
     const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     router.push(redirectTo)
   } catch (err) {
-    error.value = err.message
+    error.value = friendlyAuthError(err, 'login')
+    needsConfirmation.value = err?.code === 'email_not_confirmed'
   } finally {
-    $q.loading.hide()
+    isSubmitting.value = false
   }
 }
 </script>

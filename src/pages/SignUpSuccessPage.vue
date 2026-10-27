@@ -75,6 +75,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '../utils/supabase'
 import { getAuthRedirectUrl } from 'src/config/app.config'
+import { friendlyAuthError } from 'src/utils/authErrors'
 
 const route = useRoute()
 const loading = ref(false)
@@ -131,7 +132,7 @@ const resendEmail = async () => {
 
     message.value = 'Confirmation email has been resent!'
   } catch (err) {
-    message.value = err.message
+    message.value = friendlyAuthError(err, 'resend-confirmation')
     error.value = true
   } finally {
     loading.value = false
