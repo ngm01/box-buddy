@@ -6,9 +6,12 @@
     <q-card flat bordered class="q-mt-lg">
       <q-card-section>
         <div class="text-subtitle1 text-weight-medium">Change email</div>
-        <div v-if="pendingEmail" class="text-caption text-grey-7">
-          Waiting for confirmation of {{ pendingEmail }}
-        </div>
+        <q-banner v-if="pendingEmail" dense rounded class="bg-blue-1 q-mt-sm">
+          Changing to <strong>{{ pendingEmail }}</strong>. Click the confirmation link sent to
+          {{ pendingEmail }}<template v-if="authStore.user?.email">
+            and the one sent to {{ authStore.user.email }}</template
+          >. The change applies once both are confirmed.
+        </q-banner>
         <q-form ref="emailForm" class="q-mt-sm" @submit="handleChangeEmail">
           <q-input
             v-model="newEmail"
@@ -149,7 +152,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/auth.store'
@@ -166,6 +169,34 @@ const errorText = (error) => error?.message || 'Something went wrong. Please try
 
 // Supabase sets new_email on the user until the confirmation link is clicked.
 const pendingEmail = computed(() => authStore.user?.new_email || '')
+
+// Email-change links land here. With "Secure email change" on, the first of
+// the two links comes back with #message=...; a bad link with
+// #error_description=.... (A completed change carries tokens instead, which
+// supabase-js consumes.)
+onMounted(async () => {
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const linkMessage = params.get('message')
+  const linkError = params.get('error_description')
+  if (linkMessage || linkError) {
+    window.history.replaceState({}, document.title, window.location.pathname)
+  }
+
+  const emailBefore = authStore.user?.email
+  try {
+    await authStore.refreshUser()
+  } catch (error) {
+    console.warn('Could not refresh account details', error)
+  }
+
+  if (linkError) {
+    $q.notify({ type: 'negative', message: `Email change failed: ${linkError}`, timeout: 8000 })
+  } else if (linkMessage) {
+    $q.notify({ type: 'info', message: linkMessage, timeout: 8000 })
+  } else if (emailBefore && authStore.user?.email !== emailBefore) {
+    $q.notify({ type: 'positive', message: `Email changed to ${authStore.user.email}` })
+  }
+})
 
 const emailForm = ref(null)
 const newEmail = ref('')

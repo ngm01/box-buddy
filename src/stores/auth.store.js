@@ -124,6 +124,15 @@ export const useAuthStore = defineStore('auth', () => {
     if (error) throw error
   }
 
+  // The cached session user goes stale when an email change is confirmed in
+  // another tab or via a link, so re-read it from the server.
+  const refreshUser = async () => {
+    const { data, error } = await supabase.auth.getUser()
+    if (error) throw error
+    user.value = data.user
+    return data.user
+  }
+
   // See backend/Supabase/migrations/202610200001_delete_own_account.sql.
   const deleteAccount = async () => {
     const { error } = await supabase.rpc('delete_own_account')
@@ -144,6 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     updateEmail,
+    refreshUser,
     updatePassword,
     deleteAccount,
   }

@@ -39,6 +39,21 @@ Not tasks yet. Each needs a decision before it becomes work.
       Options: move it to the top, a floating action button (`q-page-sticky`),
       a header action, and/or pagination or collapsing (ties in with
       grouping by location above).
+- [ ] **Allow username changes?** Usernames (display names) are in every box
+      URL and printed QR label (`/boxes/:displayName/:boxName`), so a rename
+      breaks existing labels. Options: no renames; renames with a redirect
+      from the old name (needs a `previous_display_names` table); or move QR
+      URLs to a stable box id first (ties in with "Normalize QR code URLs").
+- [ ] **Avatars.** Worth it? Needs storage (Supabase bucket or S3), upload
+      and crop UI, and a fallback (initials).
+- [ ] **No spaces in box URLs.** Today `Office bookshelf` becomes
+      `/boxes/ngm01/Office%20bookshelf`. Options: disallow spaces at box
+      creation (unfriendly for non-technical users), or keep the name as typed
+      and use a URL form with spaces → underscores (or hyphens). Either way:
+      already-printed QR labels with `%20` must keep resolving, two names that
+      map to the same URL (`a b` vs `a_b`) must be caught as duplicates, and
+      `get_box_access_status` / box lookup must accept the new form. Ties in
+      with "Normalize QR code URLs" and "Allow username changes?".
 
 ## 1. MVP gaps in the app
 
@@ -52,8 +67,24 @@ Not tasks yet. Each needs a decision before it becomes work.
       `boxbuddy.io` sender plus SPF/DKIM DNS records, then brand the templates
       under Auth → Email Templates. Also lifts Supabase's built-in email rate
       limit.
-- [ ] **[You]** Test changing email on `/account` (the rest of account
-      management is done and tested).
+      Then turn **Secure email change** back on (Auth → Sign In / Providers
+      → Email). It was turned off on 2026-10-27 because the built-in sender
+      never delivered the old-address confirmation, leaving changes stuck.
+- [ ] **[Claude]** Username as the primary identity in the UI. Show the
+      display name (not email) as "Logged in as" on `/account`, with the
+      email as a secondary detail.
+- [ ] **[Claude]** Standard app header: "Hello, [username]" and an account
+      dropdown (Account, Credits, Log out) replacing the bare logout icon.
+      Avatar slot if avatars go ahead (see "To review").
+- [ ] **[You: Supabase]** Check for duplicate display names among users
+      created before `profiles` existed. The backfill skipped duplicates, so
+      any user listed here has no `profiles` row:
+      ```sql
+      select u.id, u.email, u.raw_user_meta_data->>'display_name' as name
+      from auth.users u left join public.profiles p on p.id = u.id
+      where p.id is null;
+      ```
+      New signups are already unique (`profiles.display_name` is `unique`).
 - [ ] **[Claude]** Keyboard navigation through the add-items form fields.
       (Focus-on-open is done: the name input autofocuses in
       `AddItemsDesktopDialog.vue`.)
@@ -183,8 +214,10 @@ The apex doesn't respond yet, so none of these can run.
       expired-link states. Tested 2026-10-26.
 - [x] Account management on `/account`: change password (re-checks the
       current one), delete account (`delete_own_account` RPC), change email
-      (built, not yet tested). Signup display-name check fixed with a real
-      `profiles` table. Both migrations applied; tested 2026-10-22.
+      (tested 2026-10-27; the page now shows the "confirm the other link" /
+      error message from the link and re-reads the user). Signup display-name
+      check fixed with a real `profiles` table. Both migrations applied;
+      tested 2026-10-22.
 - [x] Loading feedback on network actions: spinners, double-submit guards
       and success/failure notifications for box create/delete, box and item
       edit, item delete, searches and saving scanned items. 2026-10-20.
