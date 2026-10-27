@@ -1,7 +1,19 @@
 <template>
   <q-page class="account-page column">
     <h1 class="account-page__title">Account</h1>
-    <div class="text-grey-7 q-mt-xs">Signed in as {{ authStore.user?.email }}</div>
+    <q-item class="q-mt-md q-px-none">
+      <q-item-section avatar>
+        <UserAvatar size="48px" />
+      </q-item-section>
+      <q-item-section>
+        <q-item-label class="text-weight-medium">
+          Logged in as {{ authStore.displayName || authStore.user?.email }}
+        </q-item-label>
+        <q-item-label v-if="authStore.displayName" caption>
+          {{ authStore.user?.email }}
+        </q-item-label>
+      </q-item-section>
+    </q-item>
 
     <q-card flat bordered class="q-mt-lg">
       <q-card-section>
@@ -158,6 +170,7 @@ import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/auth.store'
 import { useLogout } from 'src/composables/useLogout'
 import MessageDialog from 'src/components/MessageDialog.vue'
+import UserAvatar from 'src/components/UserAvatar.vue'
 import { friendlyAuthError } from 'src/utils/authErrors'
 
 const $q = useQuasar()

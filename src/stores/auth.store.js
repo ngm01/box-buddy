@@ -16,6 +16,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const token = computed(() => accessToken.value)
   const isAuthenticated = computed(() => !!user.value)
+  // The username: unique, chosen at signup, and part of every box URL.
+  const displayName = computed(() => user.value?.user_metadata?.display_name || '')
 
   // Keep store in sync whenever Supabase auth state changes
   // (login, logout, token refresh, tab focus, etc.)
@@ -147,6 +149,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     accessToken,
     isAuthenticated,
+    displayName,
     hasValidSession,
     loadFromStorage,
     signup,

@@ -26,17 +26,9 @@
           :class="{ 'q-mr-sm': !isMobile }"
           @open-credits-sheet="creditsSheetOpen = true"
         />
-        <q-btn
-          v-if="!isMobile"
-          flat
-          dense
-          round
-          icon="logout"
-          title="Logout"
-          aria-label="Logout"
-          :disable="isLoggingOut"
-          :loading="isLoggingOut"
-          @click="logout"
+        <AccountMenu
+          v-if="!isMobile && authStore.isAuthenticated"
+          @open-credits-sheet="creditsSheetOpen = true"
         />
       </q-toolbar>
     </q-header>
@@ -97,17 +89,16 @@ import { computed, ref } from 'vue'
 import { useAuthStore } from '../stores/auth.store'
 import { useRoute, useRouter } from 'vue-router'
 import { useMobileLayout } from 'src/composables/useMobileLayout'
-import { useLogout } from 'src/composables/useLogout'
 import { goBackOr } from 'src/utils/navigation'
 import CreditPill from 'src/components/CreditPill.vue'
 import CreditsSheet from 'src/components/CreditsSheet.vue'
 import MobileBottomNav from 'src/components/MobileBottomNav.vue'
+import AccountMenu from 'src/components/AccountMenu.vue'
 
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const isMobile = useMobileLayout()
-const { isLoggingOut, logout } = useLogout()
 
 const leftDrawerOpen = ref(false)
 const creditsSheetOpen = ref(false)

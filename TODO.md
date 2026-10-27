@@ -66,24 +66,6 @@ Not tasks yet. Each needs a decision before it becomes work.
       Then turn **Secure email change** back on (Auth → Sign In / Providers
       → Email). It was turned off on 2026-10-27 because the built-in sender
       never delivered the old-address confirmation, leaving changes stuck.
-- [ ] **[Claude]** Username as the primary identity in the UI. Show the
-      display name (not email) as "Logged in as" on `/account`, with the
-      email as a secondary detail.
-- [ ] **[Claude]** Standard app header: "Hello, [username]" and an account
-      dropdown (Account, Credits, Log out) replacing the bare logout icon.
-      Avatar slot if avatars go ahead (see "To review").
-- [ ] **[You: Supabase]** Check for duplicate display names among users
-      created before `profiles` existed. The backfill skipped duplicates, so
-      any user listed here has no `profiles` row:
-      ```sql
-      select u.id, u.email, u.raw_user_meta_data->>'display_name' as name
-      from auth.users u left join public.profiles p on p.id = u.id
-      where p.id is null;
-      ```
-      New signups are already unique (`profiles.display_name` is `unique`).
-- [ ] **[Claude]** Keyboard navigation through the add-items form fields.
-      (Focus-on-open is done: the name input autofocuses in
-      `AddItemsDesktopDialog.vue`.)
 
 ## 2. Unverified, needs a database check
 
@@ -203,6 +185,12 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Desktop header account menu ("Hello, [username]", initial avatar,
+      Account / Buy credits / Log out); `/account` shows "Logged in as
+      [username]". Keyboard navigation in the add-items form (roving-focus
+      tag chips, ⌘/Ctrl+Enter to add). Display-name duplicate check: none;
+      the one 2025 user without a display name was deleted. Tested
+      2026-10-27.
 - [x] Friendly auth error messages (`src/utils/authErrors.js`) on login,
       signup, forgot/reset password, resend and account pages; field-level
       display-name errors; duplicate-email detection; resend-confirmation

@@ -52,7 +52,12 @@
         <!-- left pane: form -->
         <div class="ai-pane-left">
           <!-- By Hand -->
-          <template v-if="activeTab === 'hand'">
+          <div
+            v-if="activeTab === 'hand'"
+            class="ai-hand-form"
+            @keydown.enter.meta.prevent="handleAddToList"
+            @keydown.enter.ctrl.prevent="handleAddToList"
+          >
             <div class="ai-field">
               <label for="ai-item-name">Item name *</label>
               <q-input
@@ -84,16 +89,24 @@
 
             <div class="ai-field">
               <span class="ai-field__label">Tags</span>
-              <div class="ai-chips">
+              <div class="ai-chips" role="group" aria-label="Tags">
                 <q-chip
-                  v-for="tag in allTags"
+                  v-for="(tag, i) in allTags"
                   :key="tag"
+                  :ref="(el) => (chipRefs[i] = el)"
+                  :tabindex="i === focusedChip ? 0 : -1"
                   class="ai-chip"
                   :class="{ 'ai-chip--active': activeTags.includes(tag) }"
                   clickable
                   dense
                   :aria-pressed="activeTags.includes(tag)"
                   @click="toggleTag(tag)"
+                  @focus="focusedChip = i"
+                  @keydown.space.prevent="toggleTag(tag)"
+                  @keydown.left.prevent="moveChipFocus(i - 1)"
+                  @keydown.right.prevent="moveChipFocus(i + 1)"
+                  @keydown.home.prevent="moveChipFocus(0)"
+                  @keydown.end.prevent="moveChipFocus(allTags.length - 1)"
                 >
                   {{ tag }}
                 </q-chip>
@@ -105,7 +118,7 @@
                 dense
                 placeholder="Add a tag…"
                 aria-label="Add a custom tag"
-                @keydown.enter.prevent="commitTagDraft"
+                @keydown.enter.exact.prevent="onTagEnter"
                 @blur="commitTagDraft"
               />
             </div>
@@ -120,7 +133,11 @@
               :disable="!form.name.trim()"
               @click="handleAddToList"
             />
-          </template>
+            <div class="ai-kbd-hint">
+              <kbd>Enter</kbd> in name adds · <kbd>{{ modKey }}</kbd>+<kbd>Enter</kbd> from any field ·
+              <kbd>←</kbd><kbd>→</kbd> + <kbd>Space</kbd> pick tags
+            </div>
+          </div>
 
           <!-- AI Scan -->
           <template v-else>
@@ -247,6 +264,10 @@ const nameInput = ref(null)
 const activeTags = ref([])
 const customTags = ref([])
 const tagDraft = ref('')
+const chipRefs = ref([])
+const focusedChip = ref(0)
+
+const modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
 
 const {
   activeTab,
@@ -298,12 +319,23 @@ const commitTagDraft = () => {
   if (!activeTags.value.includes(tag)) activeTags.value.push(tag)
 }
 
+const moveChipFocus = (index) => {
+  const count = allTags.value.length
+  focusedChip.value = (index + count) % count
+  chipRefs.value[focusedChip.value]?.$el?.focus()
+}
+
+const onTagEnter = () => {
+  if (tagDraft.value.trim()) commitTagDraft()
+  else handleAddToList()
+}
+
 const handleAddToList = () => {
   commitTagDraft()
-  if (addToList([...activeTags.value])) {
-    activeTags.value = []
-    nextTick(() => nameInput.value?.focus())
-  }
+  // Back to the name field either way: ready for the next item, or to fill
+  // in the missing name.
+  if (addToList([...activeTags.value])) activeTags.value = []
+  nextTick(() => nameInput.value?.focus())
 }
 
 /** Desktop: AI detections land on the session list rather than saving straight away. */
@@ -317,6 +349,7 @@ const onHide = () => {
   activeTags.value = []
   customTags.value = []
   tagDraft.value = ''
+  focusedChip.value = 0
 }
 </script>
 
@@ -697,6 +730,31 @@ const onHide = () => {
   color: #1976d2;
 }
 
+/* Same column layout as .ai-pane-left, which it sits inside. */
+.ai-modal .ai-hand-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ai-modal .ai-kbd-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+}
+.ai-modal .ai-kbd-hint kbd {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 1px 4px;
+  border: 1px solid #ddd;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: #fafafa;
+}
+.ai-modal .ai-chip:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: 1px;
+}
 .ai-modal .ai-add-btn {
   width: 100%;
   height: 38px;
