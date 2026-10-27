@@ -46,15 +46,6 @@ Not tasks yet. Each needs a decision before it becomes work.
       Show specific, friendly messages (name taken, email already
       registered, wrong password, unconfirmed email, network down) instead
       of raw Supabase text or a generic "try again", and log the real cause.
-- [ ] **[You: Supabase] + [Claude]** Signup confirmation link opens
-      `boxbuddy.io`, which doesn't serve the app yet. The app passes
-      `<origin>/signup-success` as `emailRedirectTo`, but Supabase falls back
-      to the **Site URL** when that URL isn't in Auth → URL Configuration →
-      Redirect URLs. Fix: set the Site URL to the live web app (currently
-      `https://dev.boxbuddy.io`) and allow-list `http://localhost:9000/**` and
-      `https://dev.boxbuddy.io/**`. On iOS the origin is
-      `capacitor://localhost`, so signup there needs a web URL (as
-      `updateEmail` does with `safeWebBaseUrl`).
 - [ ] **[You: Supabase/email provider] + [Claude]** Send auth emails
       (confirm signup, reset password, change email) from Box Buddy, not
       Supabase. Set up custom SMTP (e.g. Amazon SES, Resend, Postmark) with a
@@ -185,6 +176,11 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Auth email links (signup, resend, reset password, change email) go
+      through `getAuthRedirectUrl()` and land back in the app; iOS uses the
+      web URL. Supabase Redirect URLs allow-list localhost:9000, dev and apex
+      (Site URL stays `boxbuddy.io`). `/signup-success` now shows confirmed /
+      expired-link states. Tested 2026-10-26.
 - [x] Account management on `/account`: change password (re-checks the
       current one), delete account (`delete_own_account` RPC), change email
       (built, not yet tested). Signup display-name check fixed with a real

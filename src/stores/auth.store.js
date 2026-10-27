@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { supabase } from 'src/utils/supabase'
 import { markServiceUnavailable } from 'src/utils/serviceStatus'
-import { safeWebBaseUrl } from 'src/config/app.config'
+import { getAuthRedirectUrl } from 'src/config/app.config'
 import { initPayments, teardownPayments } from 'src/services/payments.service'
 import { useBoxesStore } from 'src/stores/boxes.store'
 import { useCreditsStore } from 'src/stores/credits.store'
@@ -104,13 +104,9 @@ export const useAuthStore = defineStore('auth', () => {
   // Supabase emails a confirmation link; the address only changes once it's
   // clicked (with "secure email change" on, both old and new must confirm).
   const updateEmail = async (email) => {
-    // On iOS the origin is capacitor://localhost, which an email link can't open.
-    const origin = window.location.protocol.startsWith('http')
-      ? window.location.origin
-      : safeWebBaseUrl
     const { error } = await supabase.auth.updateUser(
       { email },
-      { emailRedirectTo: `${origin}/account` },
+      { emailRedirectTo: getAuthRedirectUrl('/account') },
     )
     if (error) throw error
   }

@@ -108,4 +108,22 @@ const getQrBaseUrlOrThrow = () => {
   return safeWebBaseUrl
 }
 
-export { CANONICAL_WEB_BASE_URL, ALLOWED_PROD_BASE_URLS, safeWebBaseUrl, getQrBaseUrlOrThrow }
+// Where auth emails (confirm signup, reset password, change email) link back
+// to. On iOS the page origin is capacitor://localhost, which a mail client
+// can't open, so native builds use the web app instead. Supabase only honours
+// URLs in Auth → URL Configuration → Redirect URLs; anything else falls back
+// to the Site URL.
+const getAuthRedirectUrl = (path) => {
+  const origin = /^https?:$/.test(window.location.protocol)
+    ? window.location.origin
+    : safeWebBaseUrl
+  return `${origin}${path}`
+}
+
+export {
+  CANONICAL_WEB_BASE_URL,
+  ALLOWED_PROD_BASE_URLS,
+  safeWebBaseUrl,
+  getQrBaseUrlOrThrow,
+  getAuthRedirectUrl,
+}

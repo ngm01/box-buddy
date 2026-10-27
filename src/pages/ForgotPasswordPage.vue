@@ -32,6 +32,7 @@
 <script setup>
 import { ref } from 'vue'
 import { supabase } from 'src/utils/supabase'
+import { getAuthRedirectUrl } from 'src/config/app.config'
 
 const email = ref('')
 const loading = ref(false)
@@ -45,7 +46,7 @@ const requestReset = async () => {
     message.value = ''
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: getAuthRedirectUrl('/reset-password'),
     })
 
     if (error) throw error

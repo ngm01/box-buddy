@@ -62,6 +62,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth.store'
 import { useQuasar } from 'quasar'
 import { supabase } from 'src/utils/supabase'
+import { getAuthRedirectUrl } from 'src/config/app.config'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -102,7 +103,7 @@ const signUp = async () => {
       displayName: displayName.value,
       email: email.value,
       password: password.value,
-      redirectTo: `${window.location.origin}/signup-success`,
+      redirectTo: getAuthRedirectUrl('/signup-success'),
     })
 
     if (!authData.ok) {
