@@ -92,30 +92,24 @@ export const useBoxesStore = defineStore('boxes', () => {
     const qrBaseUrl = getQrBaseUrlOrThrow()
     await assertBoxNameFree(user.id, boxData.name)
 
-    let boxRes
+    // The URL needs only the owner's display name and the box name, both
+    // known now, so it goes in the same insert: a box can't be left without one.
+    const qr_code_url = `${qrBaseUrl}${getBoxPath(display_name, boxData.name)}`
+
     try {
-      boxRes = await apiClient.post(BOXES_URL, {
+      const res = await apiClient.post(BOXES_URL, {
         ...boxData,
         tags: normalizeTags(boxData.tags),
         user_id: user.id,
         display_name,
+        qr_code_url,
       })
+      return { ...res.data, qr_code_url }
     } catch (error) {
       if (isUniqueViolation(error)) throw boxNameTakenError(boxData.name)
       console.error('Error creating box:', error)
       throw error
     }
-
-    const box = boxRes.data
-    const boxUrl = `${qrBaseUrl}${getBoxPath(display_name, box.name)}`
-
-    try {
-      await apiClient.patch(boxByIdUrl(box.id), { qr_code_url: boxUrl })
-    } catch (error) {
-      console.error('Error updating box with QR code URL:', error)
-    }
-
-    return { ...box, qr_code_url: boxUrl }
   }
 
   const updateBox = async (id, boxData) => {

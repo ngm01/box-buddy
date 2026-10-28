@@ -76,8 +76,6 @@ All **[Claude]**, in priority order, one commit each on `dev`. Lambda changes
 still need **[You: AWS]** to deploy, and migrations need **[You: Supabase]**
 to apply.
 
-- [ ] Box creation takes two requests (POST, then PATCH `qr_code_url`). Send
-      the URL with the POST.
 - [ ] Debounced box and item searches can show a stale query's results when
       responses arrive out of order. Ignore any response that isn't from the
       latest request.
@@ -105,6 +103,13 @@ to apply.
       each in the app, then run it again. Until it's applied, the app's
       own check is the only guard, and two tabs saving at once could still
       create a duplicate.
+- [ ] **[You]** On dev.boxbuddy.io, create a box and check that its
+      `qr_code_url` is filled in (Table Editor → `boxes`). It's now sent with
+      the `POST /boxes/` insert rather than a separate PATCH. If the API
+      Gateway route drops fields it doesn't know,
+      the column stays empty. Labels still work then, because
+      `getBoxQrValue` rebuilds the URL from the name, but a box made on dev
+      would get the viewing site's origin instead of dev's.
 
 - [ ] **[You: Supabase]** Confirm `202606070001_signup_bonus_credits.sql` is
       applied (new users get 20 credits). Without it, new users start at 0
@@ -261,6 +266,11 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Box creation is one request. `qr_code_url` used to be saved by a
+      second PATCH after the insert, and a failed PATCH was only logged,
+      leaving the box without one. The URL only needs the display name and
+      box name, so it now goes in the POST. Checked in Playwright (one POST
+      carrying the encoded URL, no PATCH). 2026-10-28.
 - [x] Duplicate box names. `get_box_access_status` resolves a URL with
       `limit 1`, so a second box with the same name couldn't be opened.
       Create and rename now check for a taken name and show it under the
