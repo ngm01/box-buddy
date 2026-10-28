@@ -74,17 +74,37 @@ Not tasks yet. Each needs a decision before it becomes work.
 
 All **[Claude]**, in priority order, one commit each on `dev`. Lambda changes
 still need **[You: AWS]** to deploy, and migrations need **[You: Supabase]**
-to apply.
+to apply. P0 (user-facing bugs) is done; see Done.
 
-- [ ] Vitest unit tests for the QR URL, search-escaping, auth-error and
-      config utils and for the three Lambda handlers. Run them in CI.
+**P1: launch readiness**
+
+- [ ] `webhook-revenuecat`: create the Supabase client on first use, so a
+      request without auth gets 401 instead of 500. Details and your
+      CloudWatch step are in §4.
+- [ ] `boxBuddyPaymentsCheckout`: take the return origin from the request
+      and check it against an allowlist (apex, dev, localhost), falling back
+      to `WEB_APP_URL`, so one deploy serves dev and prod. Deploying it is
+      yours; see §5.
+- [ ] `dev` → `main` release: review the diff (about 107 files) and draft
+      the PR. Claude opens it only when you say so, and merging is yours;
+      see §5 (`ALLOWED_PROD_BASE_URLS`).
+- [ ] Vitest unit tests for `parseBoxQrUrl`, `getBoxQrValue`,
+      `ilikeContains`, `authErrors` and the `app.config` URL rules, and for
+      the three Lambda handlers with mocked Supabase and Stripe. Replace the
+      no-op `npm test` and run it in CI. The Playwright checks used for P0
+      (fake backend, built SPA) could become an e2e suite here too.
+
+**P2: docs and cleanup**
+
 - [ ] README: fix the "inventoru" typo, replace the yarn instructions,
       correct the description of how production picks its base URL, and list
       every `.env.local` variable.
 - [ ] Remove duplicated helpers (`normalizeTags` ×4, `formatDate`,
       `errorText`, `API_BASE`) and the access-level picker that's copied
       into two pages.
-- [ ] Button-style audit for the "Regularize button styles" review item.
+- [ ] Button-style audit for the "Regularize button styles" review item:
+      list every `q-btn` variant in use and propose conventions for you to
+      approve. The restyle waits for that.
 
 ## 2. Unverified, needs a database or AWS check
 
