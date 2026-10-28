@@ -381,7 +381,10 @@ const box = ref(null)
 const isSavingBox = ref(false)
 const isSavingItem = ref(false)
 const isDeletingItem = ref(false)
-const isSearchingItems = ref(false)
+// A count, not a flag: an earlier search finishing must not hide the
+// spinner while a later one is still loading.
+const itemSearchesInFlight = ref(0)
+const isSearchingItems = computed(() => itemSearchesInFlight.value > 0)
 const boxDraft = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const addItemDialog = ref(null)
 const qrCodeDialog = ref(null)
@@ -437,22 +440,33 @@ const startEditingBox = () => {
   isEditing.value = true
 }
 
+// Fetches overlap (typing in search, saving an item, moving to another box)
+// and responses can arrive out of order. Each fetch takes a number, and only
+// the newest may set `items` or report an error.
+let latestItemsFetch = 0
+
 const fetchItems = async () => {
   if (!box.value?.id) return
-  items.value = await itemsStore.fetchItemsByBox(box.value.id, itemSearch.value)
+  const fetchId = ++latestItemsFetch
+  try {
+    const result = await itemsStore.fetchItemsByBox(box.value.id, itemSearch.value)
+    if (fetchId === latestItemsFetch) items.value = result
+  } catch (error) {
+    if (fetchId === latestItemsFetch) throw error
+  }
 }
 
 const handleItemSearch = () => {
   if (itemSearchDebounce) clearTimeout(itemSearchDebounce)
   itemSearchDebounce = setTimeout(async () => {
-    isSearchingItems.value = true
+    itemSearchesInFlight.value++
     try {
       await fetchItems()
     } catch (error) {
       console.error('Error searching items:', error)
       $q.notify({ type: 'negative', message: 'Search failed. Please try again.' })
     } finally {
-      isSearchingItems.value = false
+      itemSearchesInFlight.value--
     }
   }, 250)
 }
@@ -592,6 +606,8 @@ const loadPage = async () => {
   isEditing.value = false
   box.value = null
   items.value = []
+  // Drop any fetch still in flight for the previous box.
+  latestItemsFetch++
   try {
     await fetchBoxDetails()
     await fetchItems()

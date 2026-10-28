@@ -76,9 +76,6 @@ All **[Claude]**, in priority order, one commit each on `dev`. Lambda changes
 still need **[You: AWS]** to deploy, and migrations need **[You: Supabase]**
 to apply.
 
-- [ ] Debounced box and item searches can show a stale query's results when
-      responses arrive out of order. Ignore any response that isn't from the
-      latest request.
 - [ ] `/uploads/presign`, `/identify` and `/payments/checkout` use raw
       `fetch`, which skips `apiClient`'s 401 handling. An expired session
       mid-scan shows "Identify failed: 401" instead of going to login.
@@ -266,6 +263,12 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Box and item searches no longer show an older query's results when its
+      response arrives last. Each fetch is numbered, and only the newest may
+      write results, counts or errors. Signing out and moving to another box
+      also drop in-flight fetches. The search spinner stays on until the last
+      search finishes. Checked in Playwright with a slow earlier query and a
+      fast later one; the old code failed 3 of the 4 checks. 2026-10-28.
 - [x] Box creation is one request. `qr_code_url` used to be saved by a
       second PATCH after the insert, and a failed PATCH was only logged,
       leaving the box without one. The URL only needs the display name and

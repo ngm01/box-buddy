@@ -61,7 +61,13 @@ export const useBoxesStore = defineStore('boxes', () => {
     if (count) throw boxNameTakenError(name)
   }
 
+  // Each fetch takes a number; only the newest may write `boxes`. Without
+  // this, a slow earlier search that finishes after a later one would
+  // replace the later one's results.
+  let latestFetch = 0
+
   const fetchBoxes = async (searchTerm = '') => {
+    const fetchId = ++latestFetch
     try {
       const params = new URLSearchParams()
       params.set('order', 'date_updated.desc.nullslast,created_time.desc.nullslast')
@@ -72,7 +78,7 @@ export const useBoxesStore = defineStore('boxes', () => {
       }
 
       const res = await apiClient.get(`${BOXES_URL}?${params.toString()}`)
-      boxes.value = res.data
+      if (fetchId === latestFetch) boxes.value = res.data
     } catch (error) {
       console.error('Error fetching boxes:', error)
       throw error
@@ -153,6 +159,8 @@ export const useBoxesStore = defineStore('boxes', () => {
   }
 
   const reset = () => {
+    // Drop any fetch still in flight, so it can't refill the list after sign-out.
+    latestFetch++
     boxes.value = []
   }
 

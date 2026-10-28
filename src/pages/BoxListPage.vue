@@ -230,7 +230,7 @@
 
 <script setup>
 import { useBoxesStore } from 'src/stores/boxes.store'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
@@ -249,7 +249,10 @@ const showCreateBoxModal = ref(false)
 const showDeleteModal = ref(false)
 const isCreating = ref(false)
 const isDeleting = ref(false)
-const isSearching = ref(false)
+// A count, not a flag: an earlier search finishing must not hide the
+// spinner while a later one is still loading.
+const searchesInFlight = ref(0)
+const isSearching = computed(() => searchesInFlight.value > 0)
 const nameError = ref('')
 const loadError = ref('')
 const isLoading = ref(true)
@@ -268,24 +271,31 @@ const formatDate = (value) => {
   return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-// A failed count keeps the previous numbers rather than failing the list.
-const fetchItemCounts = async () => {
-  try {
-    itemCounts.value = await itemsStore.countItemsByBox(boxes.value.map((b) => b.id))
-  } catch (error) {
-    console.error('Error counting items:', error)
-  }
-}
+// Refreshes overlap when someone types quickly, and responses can arrive
+// out of order. Each refresh takes a number, and only the newest one may
+// set the counts or the error banner (the store guards `boxes` the same way).
+let latestRefresh = 0
 
 // Fetches the list and its item counts. Failures become a banner instead of
-// an unhandled rejection that leaves the page looking empty.
+// an unhandled rejection that leaves the page looking empty. A failed count
+// keeps the previous numbers rather than failing the list.
 const refreshBoxes = async () => {
+  const refreshId = ++latestRefresh
+  const isLatest = () => refreshId === latestRefresh
   try {
     await boxesStore.fetchBoxes(boxSearch.value)
-    loadError.value = ''
-    await fetchItemCounts()
   } catch {
-    loadError.value = 'We could not load your boxes right now. Please try again.'
+    if (isLatest()) loadError.value = 'We could not load your boxes right now. Please try again.'
+    return
+  }
+  if (!isLatest()) return
+  loadError.value = ''
+
+  try {
+    const counts = await itemsStore.countItemsByBox(boxes.value.map((b) => b.id))
+    if (isLatest()) itemCounts.value = counts
+  } catch (error) {
+    console.error('Error counting items:', error)
   }
 }
 
@@ -297,11 +307,11 @@ const openCreateBoxModal = () => {
 const handleBoxSearch = () => {
   if (searchDebounce) clearTimeout(searchDebounce)
   searchDebounce = setTimeout(async () => {
-    isSearching.value = true
+    searchesInFlight.value++
     try {
       await refreshBoxes()
     } finally {
-      isSearching.value = false
+      searchesInFlight.value--
     }
   }, 250)
 }
