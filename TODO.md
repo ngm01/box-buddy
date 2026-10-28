@@ -76,8 +76,6 @@ All **[Claude]**, in priority order, one commit each on `dev`. Lambda changes
 still need **[You: AWS]** to deploy, and migrations need **[You: Supabase]**
 to apply.
 
-- [ ] Warn when renaming a box that labels already printed for it will stop
-      working (see "Allow username changes?" and "Normalize QR code URLs").
 - [ ] Vitest unit tests for the QR URL, search-escaping, auth-error and
       config utils and for the three Lambda handlers. Run them in CI.
 - [ ] README: fix the "inventoru" typo, replace the yarn instructions,
@@ -260,6 +258,11 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Renaming a box warns that labels already printed for it will stop
+      opening it. The warning shows as soon as the name changes. After
+      saving, the message offers "Print new label". This only warns: printed
+      labels still break on rename until "Normalize QR code URLs" / stable
+      box ids is decided. Checked in Playwright. 2026-10-28.
 - [x] Scanning (`/uploads/presign`, `/identify`) and Stripe checkout
       (`/payments/checkout`) go through `apiClient`, so a 401 signs out and
       goes to login instead of showing "Identify failed: 401". `apiClient` now

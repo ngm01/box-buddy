@@ -179,6 +179,11 @@
               :error-message="nameError || undefined"
               @update:model-value="nameError = ''"
             />
+            <q-banner v-if="isRenaming" dense rounded class="bg-orange-1 text-orange-10">
+              <template #avatar><q-icon name="warning" color="orange-8" /></template>
+              Renaming changes this box's link. Labels already printed for it will stop
+              opening it, so print a new label after you save.
+            </q-banner>
             <q-input v-model="boxDraft.description" label="Description" type="textarea" filled autogrow />
             <div>
               <div class="text-caption text-grey-7 q-mb-sm">Access level</div>
@@ -398,6 +403,12 @@ const itemSearch = ref('')
 // Public and shared boxes are readable by other accounts, but only the owner
 // may change them (the database rejects or silently ignores anyone else).
 const isOwner = computed(() => !!box.value && box.value.user_id === authStore.user?.id)
+
+// A box's URL, and so its printed QR label, is built from its name.
+const isRenaming = computed(() => {
+  const name = boxDraft.value.name?.trim()
+  return isEditing.value && !!box.value && !!name && name !== box.value.name
+})
 let itemSearchDebounce = null
 
 const editItemDialog = ref(false)
@@ -526,12 +537,27 @@ const updateBox = async () => {
       ...(renamed ? { qr_code_url: getBoxQrValue({ ...box.value, name }) } : {}),
     })
     isEditing.value = false
-    $q.notify({ type: 'positive', message: 'Box updated' })
     if (renamed) {
+      $q.notify({
+        type: 'positive',
+        message: 'Box renamed. Print a new label: the old one no longer opens this box.',
+        timeout: 10000,
+        actions: [
+          {
+            label: 'Print new label',
+            color: 'white',
+            // The page reloads at the new URL, so the dialog may not be mounted yet.
+            handler: () => {
+              if (qrCodeDialog.value) qrCodeDialog.value.isOpen = true
+            },
+          },
+        ],
+      })
       // The current URL names the old box, which no longer resolves; the
       // route watcher reloads the page at the new one.
       await router.replace(getBoxPath(box.value.display_name, name))
     } else {
+      $q.notify({ type: 'positive', message: 'Box updated' })
       await fetchBoxDetails()
     }
   } catch (error) {
