@@ -1,7 +1,7 @@
 # Box Buddy TODO
 
 _The single live task list. Verified against the code, git, AWS and the live
-endpoints on 2026-10-17; updated 2026-10-20. It replaces `TASKS.md`, `docs/payments-todo.md`,
+endpoints on 2026-10-17; updated 2026-10-28. It replaces `TASKS.md`, `docs/payments-todo.md`,
 `docs/deep-links-todo.md` and `docs/handoff.md`, which are now in
 `docs/archive/`._
 
@@ -15,7 +15,7 @@ out returns HTTP 402 and shows `OutOfCreditsCard`. There are no subscriptions
 or plans, and nothing else is paywalled.
 
 Reference docs (not task lists): `docs/payments-flow.md`,
-`docs/deploy-dev-environment.md`.
+`docs/deploy-dev-environment.md` (gitignored, so only on your machine).
 
 ---
 
@@ -67,11 +67,67 @@ Not tasks yet. Each needs a decision before it becomes work.
       → Email). It was turned off on 2026-10-27 because the built-in sender
       never delivered the old-address confirmation, leaving changes stuck.
 
-## 2. Unverified, needs a database check
+### Code review fixes, 2026-10-28 (in progress)
+
+All **[Claude]**, in priority order, one commit each on `dev`. Lambda changes
+still need **[You: AWS]** to deploy, and migrations need **[You: Supabase]**
+to apply.
+
+- [ ] Duplicate box names: `get_box_access_status` picks one box with
+      `limit 1`, so a second box with the same name can't be opened from its
+      URL or label. Check for duplicates on create and rename, and add a
+      unique-index migration.
+- [ ] Box creation takes two requests (POST, then PATCH `qr_code_url`). Send
+      the URL with the POST.
+- [ ] Debounced box and item searches can show a stale query's results when
+      responses arrive out of order. Ignore any response that isn't from the
+      latest request.
+- [ ] `/uploads/presign`, `/identify` and `/payments/checkout` use raw
+      `fetch`, which skips `apiClient`'s 401 handling. An expired session
+      mid-scan shows "Identify failed: 401" instead of going to login.
+- [ ] Warn when renaming a box that labels already printed for it will stop
+      working (see "Allow username changes?" and "Normalize QR code URLs").
+- [ ] Vitest unit tests for the QR URL, search-escaping, auth-error and
+      config utils and for the three Lambda handlers. Run them in CI.
+- [ ] README: fix the "inventoru" typo, replace the yarn instructions,
+      correct the description of how production picks its base URL, and list
+      every `.env.local` variable.
+- [ ] Remove duplicated helpers (`normalizeTags` ×4, `formatDate`,
+      `errorText`, `API_BASE`) and the access-level picker that's copied
+      into two pages.
+- [ ] Button-style audit for the "Regularize button styles" review item.
+
+## 2. Unverified, needs a database or AWS check
 
 - [ ] **[You: Supabase]** Confirm `202606070001_signup_bonus_credits.sql` is
       applied (new users get 20 credits). Without it, new users start at 0
-      and can't scan.
+      and can't scan. The file is gitignored, so it's only on your machine.
+- [ ] **[You: Supabase]** Check whether `items.box_id` has a foreign key to
+      `boxes.id`:
+      ```sql
+      select conname from pg_constraint
+      where conrelid = 'public.items'::regclass and contype = 'f';
+      ```
+      If it does, **[Claude]** switches the box list's item counts to one
+      `boxes?select=id,items(count)` request. Today they're read 1,000 rows
+      at a time, because PostgREST embedding needs that foreign key.
+- [ ] **[You]** Check whether "Your boxes" lists other users' public boxes.
+      `fetchBoxes()` doesn't filter by `user_id`, and RLS lets any signed-in
+      user read public boxes. Unless the `/boxes/` API Gateway route adds a
+      filter, those boxes show up. To test, make a public box as one user,
+      then sign in as another. If it appears, **[Claude]** adds the filter.
+- [ ] **[You: AWS]** Check that `/identify` enforces `freeRetry` on the
+      server. The app sends `freeRetry: true` when retrying a failed photo. If
+      the Lambda trusts that flag without checking that the photo was already
+      charged, anyone can get free scans by sending it.
+- [ ] **[You: Supabase + AWS]** Commit the backend source that only lives in
+      the dashboards, so it can be reviewed and tested like the rest:
+      - the base schema for `boxes`, `items`, `user_credits` and
+        `credit_transactions` (`supabase db dump --schema-only`)
+      - the `/identify` and `/uploads/presign` Lambdas
+      - the API Gateway route config for `/boxes/`
+
+      The two checks above can't be answered from the repo without these.
 - [ ] **T23 [You]** Two ledger checks on `credit_transactions`:
       - Resend a delivered `checkout.session.completed` from Stripe → Webhooks.
         Expect `"granted": false` and still one `purchase` row.
@@ -109,9 +165,15 @@ Start T24/T25 early because they wait on Apple.
       `Missing RevenueCat API key for platform: ios` error.** `.env.local`
       doesn't have the key. No config change is needed: Quasar inlines every
       `.env.local` key.
-- [ ] **[Claude]** `POST /webhooks/revenuecat` returns **500** on an empty
-      unauthenticated request. It should return 401. Check the
-      `webhook-revenuecat` logs before T30.
+- [ ] **[Claude] + [You: AWS]** `POST /webhooks/revenuecat` returns **500**
+      on an empty unauthenticated request. It should return 401. Likely
+      cause: the handler creates its Supabase client when the module loads,
+      so a missing `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY`, or an
+      unbundled `@supabase/supabase-js`, crashes the Lambda before the auth
+      check runs. **[Claude]** will create the client on first use so
+      unauthenticated requests always get 401. **[You: AWS]** Check the
+      `webhook-revenuecat` CloudWatch logs to confirm the cause, then
+      redeploy. Do this before T30.
 - [ ] **T29 [You: ASC]** Create a sandbox tester and sign in on a real device.
 - [ ] **T30 [You]** Buy a pack on the device and confirm the credits arrive.
 
@@ -128,10 +190,13 @@ Start T24/T25 early because they wait on Apple.
 - [ ] **[You: AWS]** Reset `WEB_APP_URL` on `boxBuddyPaymentsCheckout`. It's
       currently `https://dev.boxbuddy.io`. Better option **[Claude]**: switch
       the Lambda to an origin allowlist.
-- [ ] **[Claude]** Reconcile `ALLOWED_PROD_BASE_URLS` in
+- [ ] **[Claude] + [You]** Reconcile `ALLOWED_PROD_BASE_URLS` in
       `src/config/app.config.js`. `main` still lists `test.boxbuddy.io`, while
       `dev` lists `dev.boxbuddy.io`. If they aren't reconciled, production QR
-      codes silently fall back to the canonical URL.
+      codes silently fall back to the canonical URL. Merging `dev` into
+      `main` fixes this, but `main` is about 107 files behind. **[You]** Say
+      when, and Claude will review the diff and open the `dev` → `main` PR.
+      Merging it is yours.
 - [ ] **[You: AWS]** Point the apex at `main` in Amplify. Don't print QR
       labels until the app owns the apex.
 - [ ] **[You: AWS]** Add `capacitor://localhost` to the **prod** uploads
@@ -161,12 +226,16 @@ The apex doesn't respond yet, so none of these can run.
       that nothing routes to). Keep `boxBuddyPaymentsCheckout`.
 - [ ] **[You: AWS]** Delete the `POST /webhooks/stripe` route. It has no
       integration and returns 404.
-- [ ] **[Claude]** Delete `src/scraps/` (leftover Lambda code, gitignored).
-- [ ] **[You]** Delete the 29 stale remote branches. They were verified merged
-      on 2026-09-18:
+- [ ] **[You]** Delete `src/scraps/` (leftover Lambda code). It's gitignored,
+      so it only exists on your machine.
+- [ ] **[You]** Delete the 30 stale remote branches. Re-checked on
+      2026-10-28: all 30 are still on GitHub, and all are merged into `dev`
+      or `main`. `feat/credit-pill`'s one extra commit is a merge with no
+      changes. `feat/mobile-bottom-nav` (PR #35) is new to this list.
       ```bash
       git push origin --delete codex-dev feat/batch-identify feat/credit-pill \
-        feat/credit-store feat/out-of-credits feat/payments-architecture \
+        feat/credit-store feat/mobile-bottom-nav feat/out-of-credits \
+        feat/payments-architecture \
         fix/box-detail-incomplete-try fix/box-list-subscription-destructure \
         fix/credit-store-supabase-direct-2 fix/signup-page-variables \
         fix/store-missing-params-imports \
@@ -185,6 +254,11 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Box list item counts were capped at 1,000 rows by PostgREST, so busy
+      accounts showed too few items (and 0 for later boxes).
+      `countItemsByBox()` now pages through with an exact count. Commit
+      `291eeec`, checked in Playwright against a fake backend that caps
+      responses at 1,000 rows. 2026-10-28.
 - [x] Desktop header account menu ("Hello, [username]", initial avatar,
       Account / Buy credits / Log out); `/account` shows "Logged in as
       [username]". Keyboard navigation in the add-items form (roving-focus
