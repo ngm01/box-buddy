@@ -170,7 +170,15 @@
         <q-card-section>
           <div class="text-subtitle1 text-weight-medium q-mb-md">Edit box</div>
           <q-form @submit.prevent="updateBox" class="q-gutter-y-md">
-            <q-input v-model="boxDraft.name" label="Name" filled :rules="[(val) => !!val?.trim() || 'Box name is required']" />
+            <q-input
+              v-model="boxDraft.name"
+              label="Name"
+              filled
+              :rules="[(val) => !!val?.trim() || 'Box name is required']"
+              :error="!!nameError"
+              :error-message="nameError || undefined"
+              @update:model-value="nameError = ''"
+            />
             <q-input v-model="boxDraft.description" label="Description" type="textarea" filled autogrow />
             <div>
               <div class="text-caption text-grey-7 q-mb-sm">Access level</div>
@@ -379,6 +387,7 @@ const addItemDialog = ref(null)
 const qrCodeDialog = ref(null)
 const items = ref([])
 const isEditing = ref(false)
+const nameError = ref('')
 const isLoading = ref(false)
 const pageState = ref('ready')
 const itemSearch = ref('')
@@ -424,6 +433,7 @@ const startEditingBox = () => {
     access_level: box.value.access_level || 'private',
     tags: formatTags(box.value.tags),
   }
+  nameError.value = ''
   isEditing.value = true
 }
 
@@ -511,8 +521,12 @@ const updateBox = async () => {
       await fetchBoxDetails()
     }
   } catch (error) {
-    console.error('Error updating box:', error)
-    $q.notify({ type: 'negative', message: `Could not update box: ${errorText(error)}` })
+    if (error.code === 'BOX_NAME_TAKEN') {
+      nameError.value = error.message
+    } else {
+      console.error('Error updating box:', error)
+      $q.notify({ type: 'negative', message: `Could not update box: ${errorText(error)}` })
+    }
   } finally {
     isSavingBox.value = false
   }

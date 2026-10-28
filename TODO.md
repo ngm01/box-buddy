@@ -54,6 +54,9 @@ Not tasks yet. Each needs a decision before it becomes work.
       map to the same URL (`a b` vs `a_b`) must be caught as duplicates, and
       `get_box_access_status` / box lookup must accept the new form. Ties in
       with "Normalize QR code URLs" and "Allow username changes?".
+      Note: the unique index from `202610280001` matches names exactly, the
+      same way the URL lookup does, so `Garage` and `garage` can coexist.
+      A normalized URL form would need the index on the normalized name.
 
 ## 1. MVP gaps in the app
 
@@ -73,10 +76,6 @@ All **[Claude]**, in priority order, one commit each on `dev`. Lambda changes
 still need **[You: AWS]** to deploy, and migrations need **[You: Supabase]**
 to apply.
 
-- [ ] Duplicate box names: `get_box_access_status` picks one box with
-      `limit 1`, so a second box with the same name can't be opened from its
-      URL or label. Check for duplicates on create and rename, and add a
-      unique-index migration.
 - [ ] Box creation takes two requests (POST, then PATCH `qr_code_url`). Send
       the URL with the POST.
 - [ ] Debounced box and item searches can show a stale query's results when
@@ -98,6 +97,14 @@ to apply.
 - [ ] Button-style audit for the "Regularize button styles" review item.
 
 ## 2. Unverified, needs a database or AWS check
+
+- [ ] **[You: Supabase]** Apply
+      `backend/Supabase/migrations/202610280001_unique_box_name_per_owner.sql`.
+      If any owner already has two boxes with the same name, it stops and
+      lists them (`display_name / name (n boxes)`). Rename or delete one of
+      each in the app, then run it again. Until it's applied, the app's
+      own check is the only guard, and two tabs saving at once could still
+      create a duplicate.
 
 - [ ] **[You: Supabase]** Confirm `202606070001_signup_bonus_credits.sql` is
       applied (new users get 20 credits). Without it, new users start at 0
@@ -254,6 +261,13 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Duplicate box names. `get_box_access_status` resolves a URL with
+      `limit 1`, so a second box with the same name couldn't be opened.
+      Create and rename now check for a taken name and show it under the
+      name field. A Postgres unique violation (`23505`) shows the same
+      message. Migration `202610280001` adds the unique index (applying it
+      is in §2). Checked in Playwright against a fake backend, and the
+      migration run against local Postgres. 2026-10-28.
 - [x] Box list item counts were capped at 1,000 rows by PostgREST, so busy
       accounts showed too few items (and 0 for later boxes).
       `countItemsByBox()` now pages through with an exact count. Commit

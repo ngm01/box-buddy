@@ -137,7 +137,15 @@
 
         <q-form @submit.prevent="handleCreateBox">
           <q-card-section class="q-gutter-y-md">
-            <q-input v-model="box.name" label="Box name" filled :rules="[(val) => !!val?.trim() || 'Box name is required']" />
+            <q-input
+              v-model="box.name"
+              label="Box name"
+              filled
+              :rules="[(val) => !!val?.trim() || 'Box name is required']"
+              :error="!!nameError"
+              :error-message="nameError || undefined"
+              @update:model-value="nameError = ''"
+            />
             <q-input v-model="box.description" label="Description" filled type="textarea" autogrow />
             <q-input
               v-model="box.tags"
@@ -242,6 +250,7 @@ const showDeleteModal = ref(false)
 const isCreating = ref(false)
 const isDeleting = ref(false)
 const isSearching = ref(false)
+const nameError = ref('')
 const loadError = ref('')
 const isLoading = ref(true)
 const itemCounts = ref({})
@@ -281,6 +290,7 @@ const refreshBoxes = async () => {
 }
 
 const openCreateBoxModal = () => {
+  nameError.value = ''
   showCreateBoxModal.value = true
 }
 
@@ -311,7 +321,11 @@ const handleCreateBox = async () => {
     $q.notify({ type: 'positive', message: `Box "${name}" created` })
     await refreshBoxes()
   } catch (error) {
-    $q.notify({ type: 'negative', message: `Could not create box: ${errorText(error)}` })
+    if (error.code === 'BOX_NAME_TAKEN') {
+      nameError.value = error.message
+    } else {
+      $q.notify({ type: 'negative', message: `Could not create box: ${errorText(error)}` })
+    }
   } finally {
     isCreating.value = false
   }

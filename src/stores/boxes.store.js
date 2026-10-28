@@ -34,6 +34,33 @@ export const useBoxesStore = defineStore('boxes', () => {
   // work rather than tidied to `/boxes/?id=...` unverified.
   const boxByIdUrl = (id) => `${BOXES_URL}/?id=eq.${id}`
 
+  // A box's URL is /boxes/:display_name/:box_name, so two of one owner's
+  // boxes with the same name would share a URL and one couldn't be opened.
+  // Callers show error.message next to the name field when code matches.
+  const boxNameTakenError = (name) => {
+    const error = new Error(`You already have a box named "${name}".`)
+    error.code = 'BOX_NAME_TAKEN'
+    return error
+  }
+
+  // Postgres unique_violation, from boxes_user_id_name_key
+  // (202610280001_unique_box_name_per_owner.sql). It covers a duplicate
+  // created between the check below and the write.
+  const isUniqueViolation = (error) => error?.response?.data?.code === '23505'
+
+  const assertBoxNameFree = async (userId, name, excludeId = null) => {
+    let query = supabase
+      .from('boxes')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('name', name)
+    if (excludeId) query = query.neq('id', excludeId)
+
+    const { count, error } = await query
+    if (error) throw error
+    if (count) throw boxNameTakenError(name)
+  }
+
   const fetchBoxes = async (searchTerm = '') => {
     try {
       const params = new URLSearchParams()
@@ -63,6 +90,7 @@ export const useBoxesStore = defineStore('boxes', () => {
 
     // Fail before creating anything, rather than leave a box with no QR URL.
     const qrBaseUrl = getQrBaseUrlOrThrow()
+    await assertBoxNameFree(user.id, boxData.name)
 
     let boxRes
     try {
@@ -73,6 +101,7 @@ export const useBoxesStore = defineStore('boxes', () => {
         display_name,
       })
     } catch (error) {
+      if (isUniqueViolation(error)) throw boxNameTakenError(boxData.name)
       console.error('Error creating box:', error)
       throw error
     }
@@ -90,11 +119,16 @@ export const useBoxesStore = defineStore('boxes', () => {
   }
 
   const updateBox = async (id, boxData) => {
+    if ('name' in boxData) {
+      await assertBoxNameFree(useAuthStore().user?.id, boxData.name, id)
+    }
+
     try {
       const payload = 'tags' in boxData ? { ...boxData, tags: normalizeTags(boxData.tags) } : boxData
       const res = await apiClient.patch(boxByIdUrl(id), payload)
       return res.data
     } catch (error) {
+      if (isUniqueViolation(error)) throw boxNameTakenError(boxData.name)
       console.error('Error updating box:', error)
       throw error
     }
