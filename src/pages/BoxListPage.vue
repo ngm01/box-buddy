@@ -226,12 +226,13 @@ import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { supabase } from 'src/utils/supabase'
+import { useItemsStore } from 'src/stores/items.store'
 import { getBoxPath } from 'src/utils/boxQr'
 
 const $q = useQuasar()
 const router = useRouter()
 const boxesStore = useBoxesStore()
+const itemsStore = useItemsStore()
 const { boxes } = storeToRefs(boxesStore)
 const box = ref({ name: '', description: '', access_level: 'private', tags: '' })
 const selectedBox = ref(null)
@@ -258,18 +259,13 @@ const formatDate = (value) => {
   return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// A failed count keeps the previous numbers rather than failing the list.
 const fetchItemCounts = async () => {
-  const boxIds = boxes.value.map((b) => b.id)
-  if (!boxIds.length) {
-    itemCounts.value = {}
-    return
+  try {
+    itemCounts.value = await itemsStore.countItemsByBox(boxes.value.map((b) => b.id))
+  } catch (error) {
+    console.error('Error counting items:', error)
   }
-  const { data } = await supabase.from('items').select('box_id').in('box_id', boxIds)
-  if (!data) return
-  itemCounts.value = data.reduce((acc, row) => {
-    acc[row.box_id] = (acc[row.box_id] || 0) + 1
-    return acc
-  }, {})
 }
 
 // Fetches the list and its item counts. Failures become a banner instead of

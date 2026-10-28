@@ -36,6 +36,33 @@ export const useItemsStore = defineStore('items', () => {
     return data || []
   }
 
+  // Returns { [boxId]: itemCount }. PostgREST caps every response (1,000 rows
+  // by default), so a single request undercounts once the boxes hold more
+  // items than that. Page through until the exact total has been read; the
+  // order keeps pages from overlapping.
+  const countItemsByBox = async (boxIds) => {
+    const counts = {}
+    if (!boxIds.length) return counts
+
+    let total = Infinity
+    let from = 0
+    while (from < total) {
+      const { data, count, error } = await supabase
+        .from('items')
+        .select('box_id', { count: 'exact' })
+        .in('box_id', boxIds)
+        .order('id')
+        .range(from, from + 999)
+      if (error) throw error
+      if (!data.length) break
+
+      for (const row of data) counts[row.box_id] = (counts[row.box_id] || 0) + 1
+      total = count ?? 0
+      from += data.length
+    }
+    return counts
+  }
+
   // One request, so PostgREST inserts every row in a single statement:
   // either all items are saved or none are, and a retry can't duplicate.
   const createItems = async (itemsData) => {
@@ -63,5 +90,5 @@ export const useItemsStore = defineStore('items', () => {
     if (error) throw error
   }
 
-  return { fetchItemsByBox, createItems, updateItem, deleteItem }
+  return { fetchItemsByBox, countItemsByBox, createItems, updateItem, deleteItem }
 })
