@@ -76,9 +76,6 @@ All **[Claude]**, in priority order, one commit each on `dev`. Lambda changes
 still need **[You: AWS]** to deploy, and migrations need **[You: Supabase]**
 to apply.
 
-- [ ] `/uploads/presign`, `/identify` and `/payments/checkout` use raw
-      `fetch`, which skips `apiClient`'s 401 handling. An expired session
-      mid-scan shows "Identify failed: 401" instead of going to login.
 - [ ] Warn when renaming a box that labels already printed for it will stop
       working (see "Allow username changes?" and "Normalize QR code URLs").
 - [ ] Vitest unit tests for the QR URL, search-escaping, auth-error and
@@ -263,6 +260,15 @@ The apex doesn't respond yet, so none of these can run.
 
 ## Done
 
+- [x] Scanning (`/uploads/presign`, `/identify`) and Stripe checkout
+      (`/payments/checkout`) go through `apiClient`, so a 401 signs out and
+      goes to login instead of showing "Identify failed: 401". `apiClient` now
+      gets its token from `supabase.auth.getSession()`, which refreshes an
+      expired one first, rather than sending the auth store's cached copy.
+      That copy can expire while the app is asleep and sign out a valid
+      session. The S3 upload stays a plain `fetch`, because the presigned
+      URL is its own credential. Checked in Playwright (9 checks, including
+      the 402 out-of-credits path); the old code failed 4. 2026-10-28.
 - [x] Box and item searches no longer show an older query's results when its
       response arrives last. Each fetch is numbered, and only the newest may
       write results, counts or errors. Signing out and moving to another box

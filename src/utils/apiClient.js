@@ -1,6 +1,6 @@
 import axios from 'axios'
-import { unref } from 'vue'
 import { useAuthStore } from 'src/stores/auth.store'
+import { supabase } from 'src/utils/supabase'
 
 const apiClient = axios.create()
 
@@ -16,9 +16,13 @@ const SESSION_EXPIRED_LOGIN = isHashMode
   ? '#/login?message=session-expired'
   : '/login?message=session-expired'
 
-apiClient.interceptors.request.use((config) => {
-  const authStore = useAuthStore()
-  const token = unref(authStore.token)
+// getSession() refreshes an expired access token before returning it. The
+// copy cached in the auth store can expire while the app is asleep (iOS pauses
+// timers), and sending it would turn a still-valid session into a 401 and a
+// sign-out.
+apiClient.interceptors.request.use(async (config) => {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
 
   if (token) {
     config.headers = config.headers || {}

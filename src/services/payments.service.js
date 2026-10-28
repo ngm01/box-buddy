@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core'
-import { useAuthStore } from 'src/stores/auth.store'
+import apiClient from 'src/utils/apiClient'
 
 const API_BASE = (process.env.API_BASE || 'https://api.boxbuddy.io').replace(/\/$/, '')
 
@@ -78,19 +78,16 @@ export async function teardownPayments() {
   })
 }
 
+// apiClient sends a fresh token and treats a 401 as an expired session
+// (sign out, back to login).
 const purchaseWithStripe = async (packId) => {
-  const authStore = useAuthStore()
-  const res = await fetch(`${API_BASE}/payments/checkout`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${authStore.token || ''}`,
-    },
-    body: JSON.stringify({ packId }),
-  })
-  if (!res.ok) throw new Error(`Failed to start checkout: ${res.status}`)
-  const data = await res.json()
-  if (!data.url) throw new Error('Checkout response missing redirect URL')
+  let data
+  try {
+    ;({ data } = await apiClient.post(`${API_BASE}/payments/checkout`, { packId }))
+  } catch (error) {
+    throw new Error(`Failed to start checkout: ${error.response?.status ?? error.message}`)
+  }
+  if (!data?.url) throw new Error('Checkout response missing redirect URL')
   window.location.assign(data.url)
   return { status: 'redirect' }
 }

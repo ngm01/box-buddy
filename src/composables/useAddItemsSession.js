@@ -1,9 +1,9 @@
 import { computed, reactive, ref } from 'vue'
 import { useQuasar } from 'quasar'
-import { useAuthStore } from 'src/stores/auth.store'
 import { useItemsStore } from 'src/stores/items.store'
 import { useCreditsStore } from 'src/stores/credits.store'
 import { CREDITS_PER_PHOTO } from 'src/constants/credits'
+import apiClient from 'src/utils/apiClient'
 
 const API_BASE = (process.env.API_BASE || 'https://api.boxbuddy.io').replace(/\/$/, '')
 
@@ -22,7 +22,6 @@ const API_BASE = (process.env.API_BASE || 'https://api.boxbuddy.io').replace(/\/
 export function useAddItemsSession({ boxId, onSaved, onClose }) {
   const $q = useQuasar()
   const itemsStore = useItemsStore()
-  const authStore = useAuthStore()
   const creditsStore = useCreditsStore()
 
   const activeTab = ref('hand')
@@ -163,22 +162,22 @@ export function useAddItemsSession({ boxId, onSaved, onClose }) {
       .filter((item) => item.name)
   }
 
+  // presign and identify go through apiClient, which sends a fresh token and
+  // treats a 401 as an expired session (sign out, back to login).
   async function presignUpload() {
-    const res = await fetch(`${API_BASE}/uploads/presign`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
-      body: JSON.stringify({
+    try {
+      const res = await apiClient.post(`${API_BASE}/uploads/presign`, {
         contentType: 'image/jpeg',
         originalName: `capture-${Date.now()}.jpg`,
-      }),
-    })
-    if (!res.ok) throw new Error(`Presign failed: ${res.status}`)
-    return res.json()
+      })
+      return res.data
+    } catch (error) {
+      throw new Error(`Presign failed: ${error.response?.status ?? error.message}`)
+    }
   }
 
+  // Plain fetch on purpose: the presigned URL carries its own signature, and
+  // apiClient's Authorization header would make S3 reject the upload.
   async function uploadToS3(uploadUrl, dataUrl) {
     const res = await fetch(uploadUrl, {
       method: 'PUT',
@@ -189,23 +188,21 @@ export function useAddItemsSession({ boxId, onSaved, onClose }) {
   }
 
   async function callIdentify(key, freeRetry = false) {
-    const res = await fetch(`${API_BASE}/identify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
-      body: JSON.stringify({ key, ...(freeRetry ? { freeRetry: true } : {}) }),
-    })
-    if (res.status === 402) {
-      const body = await res.json()
-      const err = new Error('Insufficient credits')
-      err.status = 402
-      err.body = body
-      throw err
+    try {
+      const res = await apiClient.post(`${API_BASE}/identify`, {
+        key,
+        ...(freeRetry ? { freeRetry: true } : {}),
+      })
+      return res.data
+    } catch (error) {
+      if (error.response?.status === 402) {
+        const err = new Error('Insufficient credits')
+        err.status = 402
+        err.body = error.response.data
+        throw err
+      }
+      throw new Error(`Identify failed: ${error.response?.status ?? error.message}`)
     }
-    if (!res.ok) throw new Error(`Identify failed: ${res.status}`)
-    return res.json()
   }
 
   // ── Batch processing loop ──────────────────────────────────────────────────
